@@ -9,9 +9,9 @@ function App() {
     <>
       <div>
         <nav>
-          <Link to="/">Home</Link>
-          <Link to="/list">List</Link>
-          <Link to="/about">About</Link>
+          <Link to="/teaching-assistance">Home</Link>
+          <Link to="/teaching-assistance/list">List</Link>
+          <Link to="/teaching-assistance/about">About</Link>
         </nav>
         <Outlet />
       </div>
