@@ -13,6 +13,7 @@
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
+    "@ant-design/v5-patch-for-react-19": "^1.0.3",
     "antd": "^6.1.1",
     "gh-pages": "^6.3.0",
     "react": "^19.2.0",
