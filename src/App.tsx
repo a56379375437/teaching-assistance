@@ -1,13 +1,3 @@
-
-//         <nav>
-//           <Link to="/teaching-assistance">Home</Link>
-//           <Link to="/teaching-assistance/list">List</Link>
-//           <Link to="/teaching-assistance/about">About</Link>
-//         </nav>
-
-
-
-import "@ant-design/v5-patch-for-react-19"; // 避免antd和React 19不兼容
 import React, { useState } from "react";
 import { Layout, Menu, theme, type MenuProps } from "antd";
 import { Outlet, useLocation, useNavigate, type To } from "react-router";
@@ -43,7 +33,7 @@ const items: MenuItem[] = [
     getItem("Team 1", "6"),
     getItem("Team 2", "8"),
   ]),
-  getItem("使用指南", "9", <FileOutlined />),
+  getItem("使用指南", mainkey + "/guide", <FileOutlined />),
 ];
 
 const App: React.FC = () => {

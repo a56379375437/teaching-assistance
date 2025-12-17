@@ -6,6 +6,7 @@ import Home from './pages/Home.tsx'
 import List from './pages/List.tsx'
 import About from './pages/About.tsx'
 import NotFound from './pages/NotFound.tsx'
+import Guide from './pages/Guide.tsx'
 
 const router = createBrowserRouter([
   {
@@ -15,6 +16,10 @@ const router = createBrowserRouter([
       {
         index: true,
         element: <Home />,
+      },
+      {
+        path: "guide",
+        element: <Guide />,
       },
       {
         path: "list",
