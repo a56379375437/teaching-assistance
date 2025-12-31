@@ -2,3 +2,12 @@
 
 // 主要网址：
 export const mainkey = '/teaching-assistance'
+export const experimentkey = mainkey + "/experiment";
+
+//针定义
+export type Needle = {
+  x: number;
+  y: number;
+  angle: number;
+  intersect: boolean;
+};

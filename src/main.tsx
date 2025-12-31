@@ -3,10 +3,11 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import { createBrowserRouter, RouterProvider } from 'react-router'
 import Home from './pages/Home.tsx'
-import List from './pages/List.tsx'
-import About from './pages/About.tsx'
 import NotFound from './pages/NotFound.tsx'
 import Guide from './pages/Guide.tsx'
+import Buffon from './pages/Buffon.tsx'
+import Test from './pages/Test.tsx'
+import Coin from './pages/Coin.tsx'
 
 const router = createBrowserRouter([
   {
@@ -18,16 +19,25 @@ const router = createBrowserRouter([
         element: <Home />,
       },
       {
+        path: "experiment",
+        children: [
+          {
+            path: "buffon-needle",
+            element: <Buffon />,
+          },
+          {
+            path:"test",
+            element:<Test/>
+          },
+          {
+            path:"coin",
+            element:<Coin/>
+          }
+        ],
+      },
+      {
         path: "guide",
         element: <Guide />,
-      },
-      {
-        path: "list",
-        element: <List />,
-      },
-      {
-        path: "about",
-        element: <About />,
       },
     ],
   },
