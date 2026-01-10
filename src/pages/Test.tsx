@@ -11,7 +11,6 @@ import {
   Select,
   Divider,
   Form,
-  Input,
   Spin,
 } from "antd";
 import { PlayCircleOutlined, ReloadOutlined } from "@ant-design/icons";
@@ -25,6 +24,7 @@ import {
   DataZoomComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
+import { findOutliers } from "../utils";
 
 // 注册ECharts模块
 echarts.use([
@@ -44,12 +44,12 @@ const { Option } = Select;
 
 // 类型定义
 interface RedPacketConfig {
-  totalAmount: number; // 总金额
-  packetCount: number; // 红包个数
-  experimentTimes: number; // 实验次数
-  distributionType: "uniform" | "normal" | "exponential"; // 分布类型
-  paramA: number; // 分布参数a
-  paramB: number; // 分布参数b
+  totalAmount: number;
+  packetCount: number;
+  experimentTimes: number;
+  distributionType: "uniform" | "normal" | "logNormal" | "exponential";
+  paramA: number | null;
+  paramB: number | null;
 }
 
 interface ExperimentResult {
@@ -58,27 +58,53 @@ interface ExperimentResult {
   varianceByOrder: number[]; // 按顺序的方差
   boxplotData: number[][]; // 箱型图数据
   frequencyData: number[][]; // 频率分布数据
+  outliersData: number[][]; // 异常值
+  meansData: number[]; // 均值数据
+  bestLuckOrders: number[]; // 手气最佳红包的顺序
+  worstLuckOrders: number[]; // 手气最差红包的顺序
 }
 
 // 工具函数：生成指定分布的随机数
 const getRandomByDistribution = (
   type: RedPacketConfig["distributionType"],
-  a: number,
-  b: number,
-  totalAmount: number,
+  a: number | null,
+  b: number | null
 ): number => {
+  const paramA = a ?? 0;
+  const paramB = b ?? 1;
+
   switch (type) {
     case "uniform": // 均匀分布 [a, b]
-      return (a + Math.random() * (b - a)) * totalAmount;
-    case "normal": { // 正态分布（a=均值，b=标准差）
+      return paramA + Math.random() * (paramB - paramA);
+    case "normal": {
+      // 一般正态分布（a=均值μ，b=标准差σ）
       let u = 0,
         v = 0;
       while (u === 0) u = Math.random();
       while (v === 0) v = Math.random();
-      return a + b * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+      const normalValue =
+        paramA +
+        (paramB > 0 ? paramB : 1) *
+          Math.sqrt(-2 * Math.log(u)) *
+          Math.cos(2 * Math.PI * v);
+      return normalValue;
+    }
+    case "logNormal": {
+      // 对数正态分布（a=μ，b=σ）
+      let u = 0,
+        v = 0;
+      while (u === 0) u = Math.random();
+      while (v === 0) v = Math.random();
+      const logNormalValue = Math.exp(
+        paramA +
+          (paramB > 0 ? paramB : 1) *
+            Math.sqrt(-2 * Math.log(u)) *
+            Math.cos(2 * Math.PI * v)
+      );
+      return Math.abs(logNormalValue); // 确保返回正值
     }
     case "exponential": // 指数分布（a=速率参数λ）
-      return -Math.log(Math.random()) / a;
+      return -Math.log(Math.random()) / (paramA > 0 ? paramA : 1);
     default:
       return Math.random();
   }
@@ -94,12 +120,19 @@ const calculateFrequencyData = (
   tempData: number[][],
   config: RedPacketConfig
 ): number[][] => {
-  const amountRange = (config.totalAmount / config.packetCount) * 2;
-  const interval = amountRange / 5;
+  // 计算合理的区间范围
+  const allValues = tempData.flat().sort((a, b) => a - b);
+  const minValue = Math.min(...allValues);
+  const maxValue = Math.max(...allValues);
+
+  // 创建5个等宽的区间
+  const intervalCount = 5;
+  const intervalWidth = (maxValue - minValue) / intervalCount;
+
   const frequencyData: number[][] = [];
-  for (let i = 0; i < 5; i++) {
-    const min = interval * i;
-    const max = interval * (i + 1);
+  for (let i = 0; i < intervalCount; i++) {
+    const min = minValue + intervalWidth * i;
+    const max = minValue + intervalWidth * (i + 1);
     frequencyData.push(
       tempData.map((orderData) => {
         const count = orderData.filter((val) => val >= min && val < max).length;
@@ -107,6 +140,7 @@ const calculateFrequencyData = (
       })
     );
   }
+
   return frequencyData;
 };
 
@@ -121,17 +155,21 @@ const RedPacketSimulation: React.FC = () => {
     paramB: 1,
   });
 
+  const outliersData: number[][] = [];
+  // const meansData: number[][] = [];
+
   // 实验结果状态
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
 
   // 引用类型
-  const boxplotRef = useRef<HTMLDivElement>(null);//箱型图容器引用
-  const meanVarianceLineRef = useRef<HTMLDivElement>(null);//均值/方差折线图容器引用
-  const frequencyRef = useRef<HTMLDivElement>(null);//频率分布柱状图容器引用
-  const amountOrderLineRef = useRef<HTMLDivElement>(null);//红包金额与红包顺序折线图容器引用
-  const timerRef = useRef<number | null>(null);//定时器引用
-  const echartsInstances = useRef<{//箱线图实例
+  const boxplotRef = useRef<HTMLDivElement>(null); //箱型图容器引用
+  const meanVarianceLineRef = useRef<HTMLDivElement>(null); //均值/方差折线图容器引用
+  const frequencyRef = useRef<HTMLDivElement>(null); //频率分布柱状图容器引用
+  const amountOrderLineRef = useRef<HTMLDivElement>(null); //红包金额与红包顺序折线图容器引用
+  const timerRef = useRef<number | null>(null); //定时器引用
+  const echartsInstances = useRef<{
+    //箱线图实例
     boxplot?: echarts.ECharts;
     meanVarianceLine?: echarts.ECharts;
     frequency?: echarts.ECharts;
@@ -189,9 +227,77 @@ const RedPacketSimulation: React.FC = () => {
 
     // 1. 更新箱型图
     if (echartsInstances.current.boxplot) {
+      const seriesData = [];
+
+      // 主要箱线图数据
+      seriesData.push({
+        name: "金额分布",
+        type: "boxplot",
+        data: result.boxplotData,
+        itemStyle: { color: "#1890ff" },
+        tooltip: {
+          formatter: (params: {
+            data: [number, number, number, number, number];
+          }) => {
+            const [min, q1, median, q3, max] = params.data;
+            return `
+            最小值：${min.toFixed(2)}<br/>
+            下四分位：${q1.toFixed(2)}<br/>
+            中位数：${median.toFixed(2)}<br/>
+            上四分位：${q3.toFixed(2)}<br/>
+            最大值：${max.toFixed(2)}
+          `;
+          },
+        },
+      });
+
+      // 均值散点
+      const meansData = result.avgByOrder.map((mean, index) => [index, mean]);
+      seriesData.push({
+        name: "均值",
+        type: "scatter",
+        data: meansData,
+        symbolSize: 8,
+        itemStyle: {
+          color: "#f5222d", // 红色表示均值
+        },
+        tooltip: {
+          formatter: (params: { value: [number, number] }) =>
+            `均值：${params.value[1].toFixed(2)}`,
+        },
+      });
+
+      // 异常值散点
+      const outlierPoints: number[][] = [];
+      result.outliersData.forEach((outliers, orderIndex) => {
+        outliers.forEach((outlier) => {
+          outlierPoints.push([orderIndex, outlier]);
+        });
+      });
+
+      if (outlierPoints.length > 0) {
+        seriesData.push({
+          name: "异常值",
+          type: "scatter",
+          data: outlierPoints,
+          symbolSize: 6,
+          itemStyle: {
+            color: "#faad14", // 黄色表示异常值
+          },
+          tooltip: {
+            formatter: (params: { value: number[] }) =>
+              `异常值：${params.value[1].toFixed(2)}`,
+          },
+        });
+      }
+
       const boxplotOption = {
         ...commonEchartOptions,
         title: { text: "红包金额箱型图（按抢红包顺序）", left: "center" },
+        legend: {
+          data: ["金额分布", "均值", "异常值"],
+          top: 30,
+        },
         xAxis: {
           type: "category",
           data: Array.from(
@@ -201,28 +307,7 @@ const RedPacketSimulation: React.FC = () => {
           axisLabel: { rotate: 30 },
         },
         yAxis: { type: "value", name: "金额（元）" },
-        series: [
-          {
-            name: "金额分布",
-            type: "boxplot",
-            data: result.boxplotData,
-            itemStyle: { color: "#1890ff" },
-            tooltip: {
-              formatter: (params: {
-                data: [number, number, number, number, number];
-              }) => {
-                const [min, q1, median, q3, max] = params.data;
-                return `
-                最小值：${min.toFixed(2)}<br/>
-                下四分位：${q1.toFixed(2)}<br/>
-                中位数：${median.toFixed(2)}<br/>
-                上四分位：${q3.toFixed(2)}<br/>
-                最大值：${max.toFixed(2)}
-              `;
-              },
-            },
-          },
-        ],
+        series: seriesData,
       };
       echartsInstances.current.boxplot.setOption(boxplotOption);
     }
@@ -268,9 +353,26 @@ const RedPacketSimulation: React.FC = () => {
 
     // 3. 更新频率分布柱状图
     if (echartsInstances.current.frequency) {
+      // 计算区间范围用于显示
+      const allValues = result.allAmounts.flat().sort((a, b) => a - b);
+      const minValue = Math.min(...allValues);
+      const maxValue = Math.max(...allValues);
+      const intervalCount = 5;
+      const intervalWidth = (maxValue - minValue) / intervalCount;
+
+      const intervals = Array.from({ length: intervalCount }, (_, i) => {
+        const min = minValue + intervalWidth * i;
+        const max = minValue + intervalWidth * (i + 1);
+        return `${min.toFixed(2)}-${max.toFixed(2)}`;
+      });
+
       const frequencyOption = {
         ...commonEchartOptions,
         title: { text: "红包金额频率分布", left: "center" },
+        legend: {
+          data: intervals.map((_, idx) => `区间${idx + 1} (${intervals[idx]})`),
+          top: 30,
+        },
         xAxis: {
           type: "category",
           data: Array.from(
@@ -280,7 +382,7 @@ const RedPacketSimulation: React.FC = () => {
         },
         yAxis: { type: "value", name: "出现频率" },
         series: result.frequencyData.map((data, idx) => ({
-          name: `金额区间${idx + 1}`,
+          name: `区间${idx + 1} (${intervals[idx]})`,
           type: "bar",
           data: data,
         })),
@@ -289,10 +391,47 @@ const RedPacketSimulation: React.FC = () => {
     }
 
     // 4. 更新红包金额与红包顺序折线图
-    if (echartsInstances.current.amountOrderLine) {
+    if (echartsInstances.current.amountOrderLine && result) {
+      // 计算手气最佳红包在各个顺序上的出现频次
+      const bestLuckOrderCounts: number[] = Array(config.packetCount).fill(0);
+      result.bestLuckOrders.forEach((order) => {
+        bestLuckOrderCounts[order]++;
+      });
+
+      // 计算手气最差红包在各个顺序上的出现频次
+      const worstLuckOrderCounts: number[] = Array(config.packetCount).fill(0);
+      result.worstLuckOrders.forEach((order) => {
+        worstLuckOrderCounts[order]++;
+      });
+
+      // 转换为百分比
+      const bestLuckPercentages = bestLuckOrderCounts.map((count) =>
+        Number(((count / config.experimentTimes) * 100).toFixed(2))
+      );
+      const worstLuckPercentages = worstLuckOrderCounts.map((count) =>
+        Number(((count / config.experimentTimes) * 100).toFixed(2))
+      );
+
       const newLineOption = {
         ...commonEchartOptions,
-        title: { text: "红包金额与红包顺序", left: "center" },
+        title: { text: "手气最佳与最差红包顺序分布", left: "center" },
+        tooltip: {
+          trigger: "axis",
+          formatter: (
+            params: {
+              dataIndex: number;
+              data: number;
+              seriesName: string;
+            }[]
+          ) => {
+            let res = `红包顺序：第${params[0].dataIndex + 1}个<br/>`;
+            params.forEach((param) => {
+              res += `${param.seriesName}：${param.data}%<br/>`;
+            });
+            return res;
+          },
+        },
+        legend: { data: ["手气最佳", "手气最差"], top: 30 },
         xAxis: {
           type: "category",
           data: Array.from(
@@ -300,13 +439,26 @@ const RedPacketSimulation: React.FC = () => {
             (_, i) => `第${i + 1}个`
           ),
         },
-        yAxis: { type: "value", name: "金额（元）" },
-        series: result.allAmounts.map((data, idx) => ({
-          name: `实验${idx + 1}`,
-          type: "line",
-          data: data.map((v) => v.toFixed(2)),
-          smooth: true,
-        })),
+        yAxis: {
+          type: "value",
+          name: "出现频率 (%)",
+          min: 0,
+          max: 100,
+        },
+        series: [
+          {
+            name: "手气最佳",
+            type: "bar",
+            data: bestLuckPercentages,
+            itemStyle: { color: "#52c41a" }, // 绿色代表最好
+          },
+          {
+            name: "手气最差",
+            type: "bar",
+            data: worstLuckPercentages,
+            itemStyle: { color: "#f5222d" }, // 红色代表最差
+          },
+        ],
       };
       echartsInstances.current.amountOrderLine.setOption(newLineOption);
     }
@@ -324,7 +476,7 @@ const RedPacketSimulation: React.FC = () => {
     for (let i = 0; i < packetCount - 1; i++) {
       // 生成随机数并归一化到 [0, remainingAmount/remainingCount * 2]
       const randomVal = Math.abs(
-        getRandomByDistribution(distributionType, paramA, paramB,totalAmount,packetCount)
+        getRandomByDistribution(distributionType, paramA, paramB)
       );
       const maxAmount = (remainingAmount / remainingCount) * 2;
       const amount = Math.min(
@@ -351,6 +503,9 @@ const RedPacketSimulation: React.FC = () => {
       { length: config.packetCount },
       () => []
     );
+    const bestLuckOrders: number[] = [];
+    const worstLuckOrders: number[] = [];
+
     let currentExperiment = 0;
 
     // 定时器模拟（避免阻塞主线程）
@@ -386,7 +541,15 @@ const RedPacketSimulation: React.FC = () => {
               : orderData[Math.floor(len / 2)];
           const q1 = orderData[Math.floor(len / 4)];
           const q3 = orderData[Math.floor((len * 3) / 4)];
+          const iqr = q3 - q1;
+          const outliers = findOutliers(
+            orderData.filter(
+              (val) => val < q1 - 1.5 * iqr || val > q3 + 1.5 * iqr
+            )
+          ); // 寻找异常值
+
           boxplotData.push([min, q1, median, q3, max]);
+          outliersData.push(outliers);
         }
 
         // 2. 计算频率分布
@@ -399,6 +562,10 @@ const RedPacketSimulation: React.FC = () => {
           varianceByOrder,
           boxplotData,
           frequencyData,
+          outliersData,
+          meansData: avgByOrder,
+          bestLuckOrders,
+          worstLuckOrders,
         });
         return;
       }
@@ -406,10 +573,19 @@ const RedPacketSimulation: React.FC = () => {
       // 执行单轮实验
       const amounts = simulateSingleExperiment();
       allAmounts.push(amounts);
+      // 记录手气最佳和最差红包的顺序
+      const maxAmount = Math.max(...amounts);
+      const minAmount = Math.min(...amounts);
+      const bestOrder = amounts.indexOf(maxAmount);
+      const worstOrder = amounts.indexOf(minAmount);
+
+      bestLuckOrders.push(bestOrder);
+      worstLuckOrders.push(worstOrder);
+
       amounts.forEach((val, idx) => tempData[idx].push(val));
       currentExperiment++;
     }, 10); // 模拟速度：10ms/次
-  }, [config, isSimulating, simulateSingleExperiment]);
+  }, [config, isSimulating, outliersData, simulateSingleExperiment]);
 
   // 重置模拟
   const resetSimulation = useCallback(() => {
@@ -427,7 +603,10 @@ const RedPacketSimulation: React.FC = () => {
   }, []);
 
   // 处理参数变化
-  const handleConfigChange = (key: keyof RedPacketConfig, value: number) => {
+  const handleConfigChange = (
+    key: keyof RedPacketConfig,
+    value: number | null
+  ) => {
     if (isSimulating) return;
     setConfig((prev) => ({ ...prev, [key]: value }));
   };
@@ -472,7 +651,6 @@ const RedPacketSimulation: React.FC = () => {
                 </Space>
               </Form.Item>
             </Col>
-
             <Col xs={24} md={12} lg={6}>
               <Form.Item label="红包个数">
                 <Space className="w-full">
@@ -491,7 +669,6 @@ const RedPacketSimulation: React.FC = () => {
                 </Space>
               </Form.Item>
             </Col>
-
             <Col xs={24} md={12} lg={6}>
               <Form.Item label="实验次数">
                 <Space className="w-full">
@@ -511,7 +688,6 @@ const RedPacketSimulation: React.FC = () => {
                 </Space>
               </Form.Item>
             </Col>
-
             <Col xs={24} md={12} lg={6}>
               <Form.Item label="随机数分布类型">
                 <Select
@@ -521,47 +697,148 @@ const RedPacketSimulation: React.FC = () => {
                   className="w-full"
                 >
                   <Option value="uniform">均匀分布</Option>
-                  <Option value="normal">正态分布</Option>
+                  <Option value="normal">一般正态分布</Option>
+                  <Option value="logNormal">对数正态分布</Option>
                   <Option value="exponential">指数分布</Option>
                 </Select>
-                <Space className="mt-2 w-full">
-                  <Input
-                    placeholder={
-                      config.distributionType === "uniform"
-                        ? "分布参数A（均匀：最小值）"
+                <div className="mt-2 flex flex-col space-y-2">
+                  <div className="flex items-center">
+                    <InputNumber
+                      placeholder="参数A"
+                      value={config.paramA}
+                      onChange={(value) => {
+                        if (config.distributionType === "uniform") {
+                          if (value !== null) {
+                            if (
+                              value >=
+                              (config.paramB ?? Number.NEGATIVE_INFINITY)
+                            ) {
+                              const newAValue = Math.min(
+                                value,
+                                (config.paramB ?? 1) - 0.01,
+                                1
+                              );
+                              handleConfigChange("paramA", newAValue);
+                              if (
+                                (config.paramB ?? Number.NEGATIVE_INFINITY) <=
+                                value
+                              ) {
+                                handleConfigChange(
+                                  "paramB",
+                                  Math.min(newAValue + 0.01, 1)
+                                );
+                              }
+                            } else {
+                              handleConfigChange(
+                                "paramA",
+                                Math.min(value, (config.paramB ?? 1) - 0.01, 1)
+                              );
+                            }
+                          } else {
+                            handleConfigChange("paramA", null);
+                          }
+                        } else if (config.distributionType === "exponential") {
+                          // 对于指数分布，只限制λ参数为正数
+                          if (value !== null && value > 0) {
+                            handleConfigChange("paramA", value);
+                          } else if (value !== null && value <= 0) {
+                            handleConfigChange("paramA", 1); // 设置默认值
+                          } else {
+                            handleConfigChange("paramA", null);
+                          }
+                        } else {
+                          // 对于正态分布和对数正态分布，参数可以是任意实数
+                          handleConfigChange("paramA", value);
+                        }
+                      }}
+                      disabled={isSimulating}
+                      className="flex-1 mr-2"
+                    />
+                    <Text
+                      type="secondary"
+                      className="text-xs whitespace-nowrap"
+                    >
+                      {config.distributionType === "uniform"
+                        ? "均匀分布：最小值"
                         : config.distributionType === "normal"
-                        ? "分布参数A（正态：均值）"
-                        : "分布参数A（指数：λ）"
-                    }
-                    value={config.paramA}
-                    onChange={(e) =>
-                      handleConfigChange("paramA", Number(e.target.value))
-                    }
-                    disabled={isSimulating}
-                    type="number"
-                  />
-                  <Input
-                    placeholder={
-                      config.distributionType === "uniform"
-                        ? "分布参数B（均匀：最大值，最大值为1）"
-                        : config.distributionType === "normal"
-                        ? "分布参数B（正态：标准差）"
-                        : "分布参数B（指数：无）"
-                    }
-                    value={config.paramB}
-                    onChange={(e) => {
-                      const value = Number(e.target.value);
-                      if (config.distributionType === "uniform" && value > 1) {
-                        handleConfigChange("paramB", 1);
-                      } else {
-                        handleConfigChange("paramB", value);
-                      }
-                    }}
-                    disabled={isSimulating}
-                    type="number"
-                    max={config.distributionType === "uniform" ? 1 : undefined}
-                  />
-                </Space>
+                        ? "正态分布：均值μ"
+                        : config.distributionType === "logNormal"
+                        ? "对数正态分布：位置参数μ"
+                        : "指数分布：λ参数"}
+                    </Text>
+                  </div>
+                  {config.distributionType !== "exponential" && (
+                    <div className="flex items-center">
+                      <InputNumber
+                        placeholder="参数B"
+                        value={config.paramB}
+                        onChange={(value) => {
+                          if (
+                            config.distributionType === "uniform" &&
+                            value !== null &&
+                            value > 1
+                          ) {
+                            handleConfigChange("paramB", 1);
+                          } else if (
+                            config.distributionType === "uniform" &&
+                            value !== null &&
+                            value !== undefined &&
+                            config.paramA !== null &&
+                            value <= (config.paramA ?? Number.NEGATIVE_INFINITY)
+                          ) {
+                            handleConfigChange(
+                              "paramB",
+                              (config.paramA ?? 0) + 0.01
+                            );
+                          } else if (
+                            config.distributionType === "exponential"
+                          ) {
+                            // 指数分布没有参数B，不需要更新
+                          } else if (
+                            config.distributionType === "normal" ||
+                            config.distributionType === "logNormal"
+                          ) {
+                            // 对于正态分布和对数正态分布，标准差必须为正
+                            if (value !== null && value > 0) {
+                              handleConfigChange("paramB", value);
+                            } else if (value !== null && value <= 0) {
+                              handleConfigChange("paramB", 1); // 设置默认值
+                            } else {
+                              handleConfigChange("paramB", null);
+                            }
+                          } else {
+                            handleConfigChange("paramB", value);
+                          }
+                        }}
+                        disabled={isSimulating}
+                        className="flex-1 mr-2"
+                        min={
+                          config.distributionType === "uniform"
+                            ? 0
+                            : config.distributionType === "normal" ||
+                              config.distributionType === "logNormal"
+                            ? 0.001
+                            : undefined
+                        }
+                        max={
+                          config.distributionType === "uniform" ? 1 : undefined
+                        }
+                      />
+                      <Text
+                        type="secondary"
+                        className="text-xs whitespace-nowrap"
+                      >
+                        {config.distributionType === "uniform"
+                          ? "均匀分布：最大值（≤1）"
+                          : config.distributionType === "normal"
+                          ? "正态分布：标准差σ"
+                          : config.distributionType === "logNormal"
+                          ? "对数正态分布：尺度参数σ"
+                          : "指数分布：无此参数"}
+                      </Text>
+                    </div>
+                  )}
+                </div>
               </Form.Item>
             </Col>
           </Row>
