@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  Slider,
   InputNumber,
   Button,
   Card,
@@ -30,7 +29,7 @@ const CoinTossSimulation: React.FC = () => {
   const [, setFrequencyData] = useState<FrequencyDataItem[]>([]); // 频率数据
   const [isSimulating, setIsSimulating] = useState<boolean>(false); // 是否正在模拟
   const chartRef = useRef<HTMLDivElement>(null); // ECharts 容器引用
-  const simulationRef = useRef<number | null>(null); // 定时器引用（浏览器环境为number）
+  const simulationRef = useRef<number | null>(null); // 定时器引用
   const chartInstanceRef = useRef<echarts.ECharts | null>(null); // ECharts 实例引用
 
   // 初始化 ECharts 实例
@@ -118,7 +117,7 @@ const CoinTossSimulation: React.FC = () => {
       chart.dispose();
       chartInstanceRef.current = null;
     };
-  }, []);
+  }, [totalTosses]);
 
   // 监听总次数变化，更新图表X轴最大值
   useEffect(() => {
@@ -320,7 +319,7 @@ const CoinTossSimulation: React.FC = () => {
         {/* 可视化图表容器 */}
         <div
           ref={chartRef}
-          className="w-full h-[500px] border border-gray-200 rounded-lg overflow-hidden bg-white"
+          className="w-full h-125 border border-gray-200 rounded-lg overflow-hidden bg-white"
         />
       </Card>
     </div>

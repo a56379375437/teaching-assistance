@@ -1,6 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import {
-  Slider,
   InputNumber,
   Button,
   Card,
@@ -186,14 +185,6 @@ const BuffonNeedleSimulation: React.FC = () => {
           <Col xs={24} md={8}>
             <Space className="w-full">
               <Text>平行线间距 (d)(取值5-20)：{lineDistance} cm</Text>
-              <Slider
-                min={5}
-                max={20}
-                step={0.5}
-                value={lineDistance}
-                onChange={handleLineDistanceChange}
-                className="w-full"
-              />
               <InputNumber
                 min={5}
                 max={20}
@@ -208,14 +199,6 @@ const BuffonNeedleSimulation: React.FC = () => {
           <Col xs={24} md={8}>
             <Space className="w-full">
               <Text>针的长度 (L)(最小值为1)：{needleLength} cm（≤线间距）</Text>
-              <Slider
-                min={1}
-                max={lineDistance}
-                step={0.5}
-                value={needleLength}
-                onChange={handleNeedleLengthChange}
-                className="w-full"
-              />
               <InputNumber
                 min={1}
                 max={lineDistance}
@@ -230,14 +213,6 @@ const BuffonNeedleSimulation: React.FC = () => {
           <Col xs={24} md={8}>
             <Space className="w-full">
               <Text>投针总次数(取值10-1000000)：{totalTrials} 次</Text>
-              <Slider
-                min={10}
-                max={1000000}
-                step={100}
-                value={totalTrials}
-                onChange={setTotalTrials}
-                className="w-full"
-              />
               <InputNumber
                 min={10}
                 max={1000000}

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   InputNumber,
   Button,
@@ -8,322 +8,672 @@ import {
   Row,
   Col,
   Statistic,
+  Select,
+  Divider,
+  Form,
+  Input,
+  Spin,
 } from "antd";
-import { ReloadOutlined, PlayCircleOutlined } from "@ant-design/icons";
-import * as echarts from "echarts";
+import { PlayCircleOutlined, ReloadOutlined } from "@ant-design/icons";
+import * as echarts from "echarts/core";
+import { BoxplotChart, LineChart, BarChart } from "echarts/charts";
+import {
+  TitleComponent,
+  TooltipComponent,
+  GridComponent,
+  LegendComponent,
+  DataZoomComponent,
+} from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
 
-const { Title, Text } = Typography;
+// 注册ECharts模块
+echarts.use([
+  TitleComponent,
+  TooltipComponent,
+  GridComponent,
+  LegendComponent,
+  DataZoomComponent,
+  BoxplotChart,
+  LineChart,
+  BarChart,
+  CanvasRenderer,
+]);
 
-// 1. 定义频率数据类型
-interface FrequencyDataItem {
-  toss: number;
-  frequency: number;
+const { Title, Text, Paragraph } = Typography;
+const { Option } = Select;
+
+// 类型定义
+interface RedPacketConfig {
+  totalAmount: number; // 总金额
+  packetCount: number; // 红包个数
+  experimentTimes: number; // 实验次数
+  distributionType: "uniform" | "normal" | "exponential"; // 分布类型
+  paramA: number; // 分布参数a
+  paramB: number; // 分布参数b
 }
 
-// 抛硬币模拟组件
-const CoinTossSimulation: React.FC = () => {
-  // 核心参数
-  const [totalTosses, setTotalTosses] = useState<number>(1000); // 总抛硬币次数
-  const [headsCount, setHeadsCount] = useState<number>(0); // 正面次数
-  const [tailsCount, setTailsCount] = useState<number>(0); // 反面次数
-  const [, setFrequencyData] = useState<FrequencyDataItem[]>([]); // 频率数据
-  const [isSimulating, setIsSimulating] = useState<boolean>(false); // 是否正在模拟
-  const chartRef = useRef<HTMLDivElement>(null); // ECharts 容器引用
-  const simulationRef = useRef<number | null>(null); // 定时器引用（浏览器环境为number）
-  const chartInstanceRef = useRef<echarts.ECharts | null>(null); // ECharts 实例引用
+interface ExperimentResult {
+  allAmounts: number[][]; // 所有实验的红包金额（二维数组：[实验次数][红包顺序]）
+  avgByOrder: number[]; // 按顺序的数学期望
+  varianceByOrder: number[]; // 按顺序的方差
+  boxplotData: number[][]; // 箱型图数据
+  frequencyData: number[][]; // 频率分布数据
+}
 
-  // 初始化 ECharts 实例
+// 工具函数：生成指定分布的随机数
+const getRandomByDistribution = (
+  type: RedPacketConfig["distributionType"],
+  a: number,
+  b: number,
+  totalAmount: number,
+): number => {
+  switch (type) {
+    case "uniform": // 均匀分布 [a, b]
+      return (a + Math.random() * (b - a)) * totalAmount;
+    case "normal": { // 正态分布（a=均值，b=标准差）
+      let u = 0,
+        v = 0;
+      while (u === 0) u = Math.random();
+      while (v === 0) v = Math.random();
+      return a + b * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+    case "exponential": // 指数分布（a=速率参数λ）
+      return -Math.log(Math.random()) / a;
+    default:
+      return Math.random();
+  }
+};
+
+// 工具函数：计算方差
+const calculateVariance = (arr: number[], avg: number): number => {
+  return arr.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / arr.length;
+};
+
+// 计算频率分布区间数据
+const calculateFrequencyData = (
+  tempData: number[][],
+  config: RedPacketConfig
+): number[][] => {
+  const amountRange = (config.totalAmount / config.packetCount) * 2;
+  const interval = amountRange / 5;
+  const frequencyData: number[][] = [];
+  for (let i = 0; i < 5; i++) {
+    const min = interval * i;
+    const max = interval * (i + 1);
+    frequencyData.push(
+      tempData.map((orderData) => {
+        const count = orderData.filter((val) => val >= min && val < max).length;
+        return Number((count / config.experimentTimes).toFixed(4));
+      })
+    );
+  }
+  return frequencyData;
+};
+
+const RedPacketSimulation: React.FC = () => {
+  // 配置参数状态
+  const [config, setConfig] = useState<RedPacketConfig>({
+    totalAmount: 100,
+    packetCount: 20,
+    experimentTimes: 500,
+    distributionType: "uniform",
+    paramA: 0,
+    paramB: 1,
+  });
+
+  // 实验结果状态
+  const [result, setResult] = useState<ExperimentResult | null>(null);
+  const [isSimulating, setIsSimulating] = useState<boolean>(false);
+
+  // 引用类型
+  const boxplotRef = useRef<HTMLDivElement>(null);//箱型图容器引用
+  const meanVarianceLineRef = useRef<HTMLDivElement>(null);//均值/方差折线图容器引用
+  const frequencyRef = useRef<HTMLDivElement>(null);//频率分布柱状图容器引用
+  const amountOrderLineRef = useRef<HTMLDivElement>(null);//红包金额与红包顺序折线图容器引用
+  const timerRef = useRef<number | null>(null);//定时器引用
+  const echartsInstances = useRef<{//箱线图实例
+    boxplot?: echarts.ECharts;
+    meanVarianceLine?: echarts.ECharts;
+    frequency?: echarts.ECharts;
+    amountOrderLine?: echarts.ECharts;
+  }>({});
+
+  const commonEchartOptions = useMemo(
+    () => ({
+      tooltip: { trigger: "axis" },
+      grid: { left: "3%", right: "4%", bottom: "3%", containLabel: true },
+      toolbox: {
+        feature: { saveAsImage: {} },
+      },
+    }),
+    []
+  );
+  // 初始化ECharts实例
   useEffect(() => {
-    if (!chartRef.current) return;
+    // 将当前实例保存到局部变量，避免清理时引用变化
+    const currentInstances = echartsInstances.current;
 
-    // 创建 ECharts 实例
-    const chart = echarts.init(chartRef.current);
-    chartInstanceRef.current = chart;
-
-    // 配置图表基础选项（完全兼容ECharts类型）
-    const chartOption = {
-      title: {
-        text: "抛硬币正面出现频率变化曲线",
-        left: "center",
-        textStyle: { fontSize: 14, color: "#333" },
-      },
-      xAxis: {
-        name: "抛硬币次数",
-        type: "value",
-        min: 0,
-        max: totalTosses,
-        axisLabel: { fontSize: 12 },
-      },
-      yAxis: {
-        name: "正面出现频率",
-        type: "value",
-        min: 0,
-        max: 1,
-        interval: 0.1,
-        axisLabel: { fontSize: 12 },
-      },
-      tooltip: {
-        trigger: "axis",
-        // 修复：使用通用函数类型，避免依赖ECharts导出类型
-        formatter: function (params: { data: [number, number] }[]) {
-          // 从ECharts原生数据中提取次数和频率
-          const toss = params[0].data[0] as number;
-          const frequency = params[0].data[1] as number;
-          return `次数：${toss}<br/>频率：${frequency.toFixed(4)}`;
-        },
-      },
-      series: [
-        {
-          name: "正面频率",
-          type: "line",
-          data: [] as [number, number][], // [次数, 频率] 二维数组
-          smooth: true,
-          lineStyle: { color: "#1677ff", width: 2 },
-          symbol: "none",
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: "rgba(22, 119, 255, 0.3)" },
-              { offset: 1, color: "rgba(22, 119, 255, 0.05)" },
-            ]),
-          },
-        },
-        {
-          name: "理论概率(0.5)",
-          type: "line",
-          data: Array.from({ length: totalTosses + 1 }, (_, i) => [i, 0.5]) as [
-            number,
-            number
-          ][],
-          lineStyle: { color: "#f53f3f", type: "dashed", width: 1 },
-          symbol: "none",
-          tooltip: { show: false },
-        },
-      ],
-      grid: {
-        left: "5%",
-        right: "5%",
-        top: "15%",
-        bottom: "10%",
-      },
-    };
-
-    chart.setOption(chartOption);
+    // 箱型图实例
+    if (boxplotRef.current) {
+      currentInstances.boxplot = echarts.init(boxplotRef.current);
+    }
+    // 均值/方差折线图实例
+    if (meanVarianceLineRef.current) {
+      currentInstances.meanVarianceLine = echarts.init(
+        meanVarianceLineRef.current
+      );
+    }
+    // 频率分布柱状图实例
+    if (frequencyRef.current) {
+      currentInstances.frequency = echarts.init(frequencyRef.current);
+    }
+    // 红包金额与红包顺序折线图实例
+    if (amountOrderLineRef.current) {
+      currentInstances.amountOrderLine = echarts.init(
+        amountOrderLineRef.current
+      );
+    }
 
     // 清理函数
     return () => {
-      if (simulationRef.current !== null) {
-        window.clearInterval(simulationRef.current);
-      }
-      chart.dispose();
-      chartInstanceRef.current = null;
+      if (timerRef.current) window.clearInterval(timerRef.current);
+      Object.values(currentInstances).forEach((instance) => {
+        instance?.dispose();
+      });
     };
   }, []);
 
-  // 监听总次数变化，更新图表X轴最大值
+  // 更新图表
   useEffect(() => {
-    if (!chartInstanceRef.current) return;
-    chartInstanceRef.current.setOption({
-      xAxis: { max: totalTosses },
-      series: [
-        {
-          name: "理论概率(0.5)",
-          data: Array.from({ length: totalTosses + 1 }, (_, i) => [i, 0.5]) as [
-            number,
-            number
-          ][],
+    if (!result) return;
+
+    // 1. 更新箱型图
+    if (echartsInstances.current.boxplot) {
+      const boxplotOption = {
+        ...commonEchartOptions,
+        title: { text: "红包金额箱型图（按抢红包顺序）", left: "center" },
+        xAxis: {
+          type: "category",
+          data: Array.from(
+            { length: config.packetCount },
+            (_, i) => `第${i + 1}个`
+          ),
+          axisLabel: { rotate: 30 },
         },
-      ],
-    });
-  }, [totalTosses]);
-
-  // 单次抛硬币（返回是否正面）
-  const tossCoin = (): boolean => {
-    return Math.random() > 0.5;
-  };
-
-  // 开始/暂停模拟
-  const toggleSimulation = () => {
-    if (isSimulating) {
-      // 暂停模拟
-      if (simulationRef.current !== null) {
-        window.clearInterval(simulationRef.current);
-        simulationRef.current = null;
-      }
-      setIsSimulating(false);
-      return;
+        yAxis: { type: "value", name: "金额（元）" },
+        series: [
+          {
+            name: "金额分布",
+            type: "boxplot",
+            data: result.boxplotData,
+            itemStyle: { color: "#1890ff" },
+            tooltip: {
+              formatter: (params: {
+                data: [number, number, number, number, number];
+              }) => {
+                const [min, q1, median, q3, max] = params.data;
+                return `
+                最小值：${min.toFixed(2)}<br/>
+                下四分位：${q1.toFixed(2)}<br/>
+                中位数：${median.toFixed(2)}<br/>
+                上四分位：${q3.toFixed(2)}<br/>
+                最大值：${max.toFixed(2)}
+              `;
+              },
+            },
+          },
+        ],
+      };
+      echartsInstances.current.boxplot.setOption(boxplotOption);
     }
 
-    // 重置之前的模拟数据
-    resetSimulation();
+    // 2. 更新均值/方差折线图
+    if (echartsInstances.current.meanVarianceLine) {
+      const lineOption = {
+        ...commonEchartOptions,
+        title: { text: "数学期望 & 方差（按抢红包顺序）", left: "center" },
+        legend: { data: ["数学期望", "方差"], top: 30 },
+        xAxis: {
+          type: "category",
+          data: Array.from(
+            { length: config.packetCount },
+            (_, i) => `第${i + 1}个`
+          ),
+        },
+        yAxis: [
+          { type: "value", name: "数学期望（元）" },
+          { type: "value", name: "方差", right: "5%" },
+        ],
+        series: [
+          {
+            name: "数学期望",
+            type: "line",
+            data: result.avgByOrder.map((v) => v.toFixed(2)),
+            yAxisIndex: 0,
+            itemStyle: { color: "#1890ff" },
+            smooth: true,
+          },
+          {
+            name: "方差",
+            type: "line",
+            data: result.varianceByOrder.map((v) => v.toFixed(4)),
+            yAxisIndex: 1,
+            itemStyle: { color: "#f5222d" },
+            smooth: true,
+          },
+        ],
+      };
+      echartsInstances.current.meanVarianceLine.setOption(lineOption);
+    }
+
+    // 3. 更新频率分布柱状图
+    if (echartsInstances.current.frequency) {
+      const frequencyOption = {
+        ...commonEchartOptions,
+        title: { text: "红包金额频率分布", left: "center" },
+        xAxis: {
+          type: "category",
+          data: Array.from(
+            { length: config.packetCount },
+            (_, i) => `第${i + 1}个`
+          ),
+        },
+        yAxis: { type: "value", name: "出现频率" },
+        series: result.frequencyData.map((data, idx) => ({
+          name: `金额区间${idx + 1}`,
+          type: "bar",
+          data: data,
+        })),
+      };
+      echartsInstances.current.frequency.setOption(frequencyOption);
+    }
+
+    // 4. 更新红包金额与红包顺序折线图
+    if (echartsInstances.current.amountOrderLine) {
+      const newLineOption = {
+        ...commonEchartOptions,
+        title: { text: "红包金额与红包顺序", left: "center" },
+        xAxis: {
+          type: "category",
+          data: Array.from(
+            { length: config.packetCount },
+            (_, i) => `第${i + 1}个`
+          ),
+        },
+        yAxis: { type: "value", name: "金额（元）" },
+        series: result.allAmounts.map((data, idx) => ({
+          name: `实验${idx + 1}`,
+          type: "line",
+          data: data.map((v) => v.toFixed(2)),
+          smooth: true,
+        })),
+      };
+      echartsInstances.current.amountOrderLine.setOption(newLineOption);
+    }
+  }, [result, config, commonEchartOptions]);
+
+  // 单轮抢红包模拟
+  const simulateSingleExperiment = useCallback((): number[] => {
+    const { totalAmount, packetCount, distributionType, paramA, paramB } =
+      config;
+    const amounts: number[] = [];
+    let remainingAmount = totalAmount;
+    let remainingCount = packetCount;
+
+    // 生成每个红包的金额
+    for (let i = 0; i < packetCount - 1; i++) {
+      // 生成随机数并归一化到 [0, remainingAmount/remainingCount * 2]
+      const randomVal = Math.abs(
+        getRandomByDistribution(distributionType, paramA, paramB,totalAmount,packetCount)
+      );
+      const maxAmount = (remainingAmount / remainingCount) * 2;
+      const amount = Math.min(
+        randomVal % maxAmount,
+        remainingAmount - 0.01 * (remainingCount - 1)
+      );
+      amounts.push(Number(amount.toFixed(2)));
+      remainingAmount -= amount;
+      remainingCount--;
+    }
+
+    // 最后一个红包取剩余金额
+    amounts.push(Number(remainingAmount.toFixed(2)));
+    return amounts;
+  }, [config]);
+
+  // 批量模拟实验
+  const runSimulation = useCallback(() => {
+    if (isSimulating) return;
+
     setIsSimulating(true);
+    const allAmounts: number[][] = [];
+    const tempData: number[][] = Array.from(
+      { length: config.packetCount },
+      () => []
+    );
+    let currentExperiment = 0;
 
-    let currentToss = 0;
-    let currentHeads = 0;
-    const newFrequencyData: FrequencyDataItem[] = [];
-
-    // 模拟定时器（浏览器环境使用window.setInterval）
-    simulationRef.current = window.setInterval(() => {
-      if (currentToss >= totalTosses) {
-        // 模拟结束
-        window.clearInterval(simulationRef.current!); // 非空断言：此时定时器一定存在
-        simulationRef.current = null;
+    // 定时器模拟（避免阻塞主线程）
+    timerRef.current = window.setInterval(() => {
+      if (currentExperiment >= config.experimentTimes) {
+        window.clearInterval(timerRef.current!);
+        timerRef.current = null;
         setIsSimulating(false);
+
+        // 计算统计结果
+        const avgByOrder: number[] = [];
+        const varianceByOrder: number[] = [];
+        const boxplotData: number[][] = [];
+        const frequencyData: number[][] = [];
+
+        // 1. 计算均值、方差、箱型图数据
+        for (let i = 0; i < config.packetCount; i++) {
+          const orderData = tempData[i].sort((a, b) => a - b);
+          const avg =
+            orderData.reduce((sum, val) => sum + val, 0) / orderData.length;
+          const variance = calculateVariance(orderData, avg);
+
+          avgByOrder.push(avg);
+          varianceByOrder.push(variance);
+
+          // 箱型图数据：[min, Q1, median, Q3, max]
+          const len = orderData.length;
+          const min = orderData[0];
+          const max = orderData[len - 1];
+          const median =
+            len % 2 === 0
+              ? (orderData[len / 2 - 1] + orderData[len / 2]) / 2
+              : orderData[Math.floor(len / 2)];
+          const q1 = orderData[Math.floor(len / 4)];
+          const q3 = orderData[Math.floor((len * 3) / 4)];
+          boxplotData.push([min, q1, median, q3, max]);
+        }
+
+        // 2. 计算频率分布
+        frequencyData.push(...calculateFrequencyData(tempData, config));
+
+        // 更新结果
+        setResult({
+          allAmounts,
+          avgByOrder,
+          varianceByOrder,
+          boxplotData,
+          frequencyData,
+        });
         return;
       }
 
-      // 抛硬币并统计
-      currentToss++;
-      const isHead = tossCoin();
-      if (isHead) currentHeads++;
-
-      // 计算频率（每10次记录一次数据，减少渲染压力）
-      if (currentToss % 10 === 0 || currentToss === totalTosses) {
-        const frequency = currentHeads / currentToss;
-        newFrequencyData.push({ toss: currentToss, frequency });
-
-        // 更新状态
-        setHeadsCount(currentHeads);
-        setTailsCount(currentToss - currentHeads);
-        setFrequencyData([...newFrequencyData]);
-
-        // 更新图表数据
-        if (chartInstanceRef.current) {
-          const chartData = newFrequencyData.map((item) => [
-            item.toss,
-            item.frequency,
-          ]) as [number, number][];
-          chartInstanceRef.current.setOption({
-            series: [
-              {
-                name: "正面频率",
-                data: chartData,
-              },
-            ],
-          });
-        }
-      }
-    }, 10); // 模拟速度：数值越小越快
-  };
+      // 执行单轮实验
+      const amounts = simulateSingleExperiment();
+      allAmounts.push(amounts);
+      amounts.forEach((val, idx) => tempData[idx].push(val));
+      currentExperiment++;
+    }, 10); // 模拟速度：10ms/次
+  }, [config, isSimulating, simulateSingleExperiment]);
 
   // 重置模拟
-  const resetSimulation = () => {
-    if (simulationRef.current !== null) {
-      window.clearInterval(simulationRef.current);
-      simulationRef.current = null;
+  const resetSimulation = useCallback(() => {
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
     }
     setIsSimulating(false);
-    setHeadsCount(0);
-    setTailsCount(0);
-    setFrequencyData([]);
-    // 重置图表
-    if (chartInstanceRef.current) {
-      chartInstanceRef.current.setOption({
-        series: [{ name: "正面频率", data: [] as [number, number][] }],
-      });
-    }
+    setResult(null);
+
+    // 清空图表
+    Object.values(echartsInstances.current).forEach((instance) => {
+      instance?.clear();
+    });
+  }, []);
+
+  // 处理参数变化
+  const handleConfigChange = (key: keyof RedPacketConfig, value: number) => {
+    if (isSimulating) return;
+    setConfig((prev) => ({ ...prev, [key]: value }));
   };
 
-  // 限制总次数范围（处理InputNumber的null值）
-  const handleTossesChange = (value: number | null) => {
-    if (value === null) return;
-    const clampedValue = Math.max(100, Math.min(100000, value));
-    setTotalTosses(clampedValue);
+  const handleDistributionTypeChange = (value: string) => {
+    if (isSimulating) return;
+    setConfig((prev) => ({
+      ...prev,
+      distributionType: value as RedPacketConfig["distributionType"],
+    }));
   };
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto p-6 bg-gray-50 min-h-screen">
       <Card className="shadow-lg mb-6">
-        <Title level={3} className="mb-4">
-          多次抛硬币概率模拟
+        <Title level={3} className="mb-4 text-center">
+          抢红包概率模拟
         </Title>
-        <Text type="secondary" className="mb-6 block">
-          原理：根据大数定律，随着抛硬币次数增加，正面出现的频率会逐渐趋近于理论概率
-          0.5
-        </Text>
+        <Paragraph type="secondary" className="text-center mb-8">
+          模拟不同分布规则下抢红包的金额分配规律，支持均匀分布、正态分布、指数分布，可视化展示金额分布特征
+        </Paragraph>
 
-        {/* 参数调节区域 */}
-        <Row gutter={[16, 16]} className="mb-6">
-          <Col xs={24} md={16}>
-            <Space className="w-full">
-              <Text>总抛硬币次数：{totalTosses} 次</Text>
-              {/* <Slider
-                min={100}
-                max={100000}
-                step={100}
-                value={totalTosses}
-                onChange={handleTossesChange}
-                disabled={isSimulating}
-                // dots // 添加此属性使滑块只能在刻度点上移动
-                className="w-full"
-              /> */}
-              <InputNumber
-                min={100}
-                max={100000}
-                step={100}
-                value={totalTosses}
-                onChange={handleTossesChange}
-                disabled={isSimulating}
-                className="w-full"
+        {/* 参数配置区域 */}
+        <Form layout="vertical" className="mb-8">
+          <Row gutter={[24, 24]}>
+            {/* 基础参数 */}
+            <Col xs={24} md={12} lg={6}>
+              <Form.Item label="红包总金额（元）">
+                <Space className="w-full">
+                  <Text>{config.totalAmount} 元</Text>
+
+                  <InputNumber
+                    min={1}
+                    max={1000}
+                    value={config.totalAmount}
+                    onChange={(v) =>
+                      handleConfigChange("totalAmount", v ? v : 0)
+                    }
+                    disabled={isSimulating}
+                    className="w-full"
+                  />
+                </Space>
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={12} lg={6}>
+              <Form.Item label="红包个数">
+                <Space className="w-full">
+                  <Text>{config.packetCount} 个</Text>
+
+                  <InputNumber
+                    min={1}
+                    max={100}
+                    value={config.packetCount}
+                    onChange={(v) =>
+                      handleConfigChange("packetCount", v ? v : 0)
+                    }
+                    disabled={isSimulating}
+                    className="w-full"
+                  />
+                </Space>
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={12} lg={6}>
+              <Form.Item label="实验次数">
+                <Space className="w-full">
+                  <Text>{config.experimentTimes} 次</Text>
+
+                  <InputNumber
+                    min={100}
+                    max={10000}
+                    step={100}
+                    value={config.experimentTimes}
+                    onChange={(v) =>
+                      handleConfigChange("experimentTimes", v ? v : 0)
+                    }
+                    disabled={isSimulating}
+                    className="w-full"
+                  />
+                </Space>
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={12} lg={6}>
+              <Form.Item label="随机数分布类型">
+                <Select
+                  value={config.distributionType}
+                  onChange={handleDistributionTypeChange}
+                  disabled={isSimulating}
+                  className="w-full"
+                >
+                  <Option value="uniform">均匀分布</Option>
+                  <Option value="normal">正态分布</Option>
+                  <Option value="exponential">指数分布</Option>
+                </Select>
+                <Space className="mt-2 w-full">
+                  <Input
+                    placeholder={
+                      config.distributionType === "uniform"
+                        ? "分布参数A（均匀：最小值）"
+                        : config.distributionType === "normal"
+                        ? "分布参数A（正态：均值）"
+                        : "分布参数A（指数：λ）"
+                    }
+                    value={config.paramA}
+                    onChange={(e) =>
+                      handleConfigChange("paramA", Number(e.target.value))
+                    }
+                    disabled={isSimulating}
+                    type="number"
+                  />
+                  <Input
+                    placeholder={
+                      config.distributionType === "uniform"
+                        ? "分布参数B（均匀：最大值，最大值为1）"
+                        : config.distributionType === "normal"
+                        ? "分布参数B（正态：标准差）"
+                        : "分布参数B（指数：无）"
+                    }
+                    value={config.paramB}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      if (config.distributionType === "uniform" && value > 1) {
+                        handleConfigChange("paramB", 1);
+                      } else {
+                        handleConfigChange("paramB", value);
+                      }
+                    }}
+                    disabled={isSimulating}
+                    type="number"
+                    max={config.distributionType === "uniform" ? 1 : undefined}
+                  />
+                </Space>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* 操作按钮 */}
+          <Space className="flex justify-center mt-4">
+            <Button
+              type="primary"
+              icon={<PlayCircleOutlined />}
+              onClick={runSimulation}
+              disabled={isSimulating}
+              size="large"
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              开始模拟
+            </Button>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={resetSimulation}
+              disabled={isSimulating}
+              size="large"
+              className="bg-gray-200 hover:bg-gray-300"
+            >
+              重置
+            </Button>
+          </Space>
+        </Form>
+
+        <Divider />
+
+        {/* 统计结果 */}
+        {result && (
+          <Row gutter={[24, 24]} className="mb-8">
+            <Col xs={24} md={8}>
+              <Statistic
+                title="平均单个红包金额"
+                value={(config.totalAmount / config.packetCount).toFixed(2)}
+                suffix="元"
               />
-            </Space>
-          </Col>
-          <Col xs={24} md={8}>
-            <Space className="h-full items-center justify-center">
-              <Button
-                type="primary"
-                icon={<PlayCircleOutlined />}
-                onClick={toggleSimulation}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-                size="large"
-              >
-                {isSimulating ? "暂停模拟" : "开始模拟"}
-              </Button>
-              <Button
-                icon={<ReloadOutlined />}
-                onClick={resetSimulation}
-                disabled={isSimulating}
-                className="bg-gray-200 hover:bg-gray-300"
-                size="large"
-              >
-                重置
-              </Button>
-            </Space>
-          </Col>
-        </Row>
+            </Col>
+            <Col xs={24} md={8}>
+              <Statistic
+                title="整体数学期望"
+                value={
+                  result.avgByOrder.reduce((sum, val) => sum + val, 0) /
+                    result.avgByOrder.length || 0
+                }
+                formatter={(value) => `${Number(value).toFixed(2)} 元`}
+              />
+            </Col>
+            <Col xs={24} md={8}>
+              <Statistic
+                title="整体方差"
+                value={
+                  result.varianceByOrder.reduce((sum, val) => sum + val, 0) /
+                    result.varianceByOrder.length || 0
+                }
+                formatter={(value) => Number(value).toFixed(4)}
+              />
+            </Col>
+          </Row>
+        )}
 
-        {/* 结果统计 */}
-        <Row gutter={[16, 16]} className="mb-6">
-          <Col xs={8}>
-            <Statistic
-              title="正面次数"
-              value={headsCount}
-              valueStyle={{ color: "#1677ff" }}
-            />
-          </Col>
-          <Col xs={8}>
-            <Statistic
-              title="反面次数"
-              value={tailsCount}
-              valueStyle={{ color: "#767676" }}
-            />
-          </Col>
-          <Col xs={8}>
-            <Statistic
-              title="正面频率"
-              value={(headsCount / (headsCount + tailsCount) || 0).toFixed(4)}
-              valueStyle={{ color: "#f53f3f" }}
-            />
-          </Col>
-        </Row>
+        {/* 可视化图表区域 */}
+        <Spin spinning={isSimulating} tip="模拟中...">
+          <Row gutter={[24, 24]}>
+            {/* 箱型图 */}
+            <Col xs={24} md={12} lg={12}>
+              <Card title="红包金额箱型图" className="h-full">
+                <div
+                  ref={boxplotRef}
+                  className="w-full h-100 border-gray-200 rounded-lg overflow-hidden"
+                />
+              </Card>
+            </Col>
 
-        {/* 可视化图表容器 */}
-        <div
-          ref={chartRef}
-          className="w-full h-[500px] border border-gray-200 rounded-lg overflow-hidden bg-white"
-        />
+            {/* 均值/方差折线图 */}
+            <Col xs={24} md={12} lg={12}>
+              <Card title="均值 & 方差趋势" className="h-full">
+                <div
+                  ref={meanVarianceLineRef}
+                  className="w-full h-100  border-gray-200 rounded-lg overflow-hidden"
+                />
+              </Card>
+            </Col>
+          </Row>
+
+          <Row gutter={[24, 24]}>
+            {/* 频率分布柱状图 */}
+            <Col xs={24} md={12} lg={12}>
+              <Card title="金额频率分布" className="h-full">
+                <div
+                  ref={frequencyRef}
+                  className="w-full h-100  border-gray-200 rounded-lg overflow-hidden"
+                />
+              </Card>
+            </Col>
+
+            {/* 红包金额与红包顺序折线图 */}
+            <Col xs={24} md={12} lg={12}>
+              <Card title="红包金额与红包顺序" className="h-full">
+                <div
+                  ref={amountOrderLineRef}
+                  className="w-full h-100  border-gray-200 rounded-lg overflow-hidden"
+                />
+              </Card>
+            </Col>
+          </Row>
+        </Spin>
       </Card>
     </div>
   );
 };
 
-export default CoinTossSimulation;
+export default RedPacketSimulation;
