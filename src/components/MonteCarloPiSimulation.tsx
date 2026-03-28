@@ -11,6 +11,7 @@ import {
 } from "antd";
 import { ReloadOutlined, PlayCircleOutlined } from "@ant-design/icons";
 import * as echarts from "echarts";
+import { getSecureRandom } from "../utils";
 
 const { Title, Text } = Typography;
 
@@ -156,8 +157,8 @@ const MonteCarloIntegral: React.FC = () => {
 
   // ====================== 单次投点 ======================
   const throwOnePoint = () => {
-    const x = a + Math.random() * (b - a);
-    const y = Math.random() * maxY;
+    const x = a + getSecureRandom() * (b - a);
+    const y = getSecureRandom() * maxY;
     const fx = f(x);
     return { x, y, isUnder: y <= fx };
   };

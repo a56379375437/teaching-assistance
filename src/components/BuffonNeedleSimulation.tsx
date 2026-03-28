@@ -11,6 +11,7 @@ import {
 } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
 import type { Needle } from "../types";
+import { getSecureRandom } from "../utils";
 
 const { Title, Text } = Typography;
 
@@ -39,19 +40,21 @@ const BuffonNeedleSimulation: React.FC = () => {
     // 清空画布
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 绘制平行线（水平方向）
-    ctx.strokeStyle = "#e5e7eb"; // tailwind gray-200
-    ctx.lineWidth = 1;
-    const step = lineDistance * 10; // 放大倍数，让线条更清晰
+    ctx.strokeStyle = "#213211";
+    ctx.lineWidth = 1.5; // 线条加粗
+    ctx.setLineDash([5, 3]); // 虚线样式
+    const step = lineDistance * 10;
     for (let y = 0; y < canvas.height; y += step) {
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(canvas.width, y);
       ctx.stroke();
     }
+    ctx.setLineDash([]); // 重置为实线，避免影响针的绘制
+    // ========================================================
   }, [lineDistance]);
 
-  // 绘制单根针 - 移到simulateNeedles之前并使用useCallback
+  // 绘制单根针
   const drawNeedle = useCallback(
     (
       ctx: CanvasRenderingContext2D,
@@ -59,7 +62,7 @@ const BuffonNeedleSimulation: React.FC = () => {
       y: number,
       angle: number,
       length: number,
-      intersect: boolean
+      intersect: boolean,
     ) => {
       ctx.strokeStyle = intersect ? "#ef4444" : "#3b82f6"; // 相交红色，不相交蓝色
       ctx.lineWidth = 2;
@@ -77,12 +80,12 @@ const BuffonNeedleSimulation: React.FC = () => {
       ctx.lineTo(x2, y2);
       ctx.stroke();
     },
-    []
+    [],
   );
 
-  // 模拟投针并绘制 - 使用useCallback避免在渲染时执行
+  // 模拟投针并绘制
   const simulateNeedles = useCallback(() => {
-    initCanvas(); // 先重置画布
+    initCanvas();
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -90,19 +93,17 @@ const BuffonNeedleSimulation: React.FC = () => {
 
     const newNeedles: Needle[] = [];
     let newIntersectCount = 0;
-    const step = lineDistance * 10; // 线条间距（放大后）
-    const scaledNeedleLength = needleLength * 10; // 针长（放大后）
+    const step = lineDistance * 10;
+    const scaledNeedleLength = needleLength * 10;
 
     for (let i = 0; i < totalTrials; i++) {
-      // 1. 随机生成针的中点坐标 (x, y)
-      const x = Math.random() * canvas.width;
-      const y = Math.random() * canvas.height;
+      // 使用高质量安全随机数
+      const x = getSecureRandom() * canvas.width;
+      const y = getSecureRandom() * canvas.height;
+      const angle = getSecureRandom() * Math.PI;
 
-      // 2. 随机生成针的角度（0 ~ π）
-      const angle = Math.random() * Math.PI;
-
-      // 3. 判断是否相交：针的中点到最近直线的距离 < (针长/2)*sin(角度)
-      const distanceToLine = y % step; // 中点到最近直线的垂直距离
+      // 相交判断
+      const distanceToLine = y % step;
       const criticalDistance = (scaledNeedleLength / 2) * Math.sin(angle);
       const intersect =
         distanceToLine < criticalDistance ||
@@ -111,17 +112,16 @@ const BuffonNeedleSimulation: React.FC = () => {
       if (intersect) newIntersectCount++;
       newNeedles.push({ x, y, angle, intersect });
 
-      // 4. 绘制单根针（仅绘制前1000根避免画布卡顿）
+      // 只绘制前1000根针
       if (i < 1000) {
         drawNeedle(ctx, x, y, angle, scaledNeedleLength, intersect);
       }
     }
 
-    // 更新状态
     setNeedles(newNeedles);
     setIntersectCount(newIntersectCount);
 
-    // 计算π的近似值（避免除以0）
+    // 计算π
     const probability = newIntersectCount / totalTrials;
     const pi =
       probability > 0 ? (2 * needleLength) / (lineDistance * probability) : 0;
@@ -139,18 +139,17 @@ const BuffonNeedleSimulation: React.FC = () => {
   // 初始化画布
   useEffect(() => {
     initCanvas();
-    // 监听窗口大小变化，重新绘制画布
     window.addEventListener("resize", initCanvas);
     return () => window.removeEventListener("resize", initCanvas);
   }, [initCanvas]);
 
-  // 点击模拟按钮执行
+  // 点击模拟
   const handleSimulate = () => {
     if (totalTrials <= 0 || needleLength <= 0 || lineDistance <= 0) return;
     simulateNeedles();
   };
 
-  // 处理针长变化，确保不超过线间距
+  // 参数限制
   const handleNeedleLengthChange = (value: number | null) => {
     if (value !== null) {
       const clampedValue = Math.min(value, lineDistance);
@@ -158,11 +157,9 @@ const BuffonNeedleSimulation: React.FC = () => {
     }
   };
 
-  // 处理线间距变化，确保针长不超过线间距
   const handleLineDistanceChange = (value: number | null) => {
     if (value !== null) {
       setLineDistance(value);
-      // 如果当前针长超过新的线间距，调整针长
       if (needleLength > value) {
         setNeedleLength(value);
       }
@@ -180,11 +177,11 @@ const BuffonNeedleSimulation: React.FC = () => {
           p)（L=针长，d=线间距，p=相交概率）
         </Text>
 
-        {/* 参数调节区域 */}
+        {/* 参数调节 */}
         <Row gutter={[16, 16]} className="mb-6">
           <Col xs={24} md={8}>
             <Space className="w-full">
-              <Text>平行线间距 (d)(取值5-20)：{lineDistance} cm</Text>
+              <Text>平行线间距 (d)：{lineDistance} cm</Text>
               <InputNumber
                 min={5}
                 max={20}
@@ -198,7 +195,7 @@ const BuffonNeedleSimulation: React.FC = () => {
 
           <Col xs={24} md={8}>
             <Space className="w-full">
-              <Text>针的长度 (L)(最小值为1)：{needleLength} cm（≤线间距）</Text>
+              <Text>针长 (L)：{needleLength} cm（≤线间距）</Text>
               <InputNumber
                 min={1}
                 max={lineDistance}
@@ -209,10 +206,10 @@ const BuffonNeedleSimulation: React.FC = () => {
               />
             </Space>
           </Col>
-          {/* 最小值取10，方便观察 */}
+
           <Col xs={24} md={8}>
             <Space className="w-full">
-              <Text>投针总次数(取值10-1000000)：{totalTrials} 次</Text>
+              <Text>投针总次数：{totalTrials} 次</Text>
               <InputNumber
                 min={10}
                 max={1000000}
@@ -225,7 +222,7 @@ const BuffonNeedleSimulation: React.FC = () => {
           </Col>
         </Row>
 
-        {/* 操作按钮 */}
+        {/* 按钮 */}
         <Space className="mb-6">
           <Button
             type="primary"
@@ -243,7 +240,7 @@ const BuffonNeedleSimulation: React.FC = () => {
           </Button>
         </Space>
 
-        {/* 结果统计 */}
+        {/* 结果 */}
         <Row gutter={[16, 16]} className="mb-6">
           <Col xs={8}>
             <Statistic title="相交次数" value={intersectCount} />
@@ -263,12 +260,13 @@ const BuffonNeedleSimulation: React.FC = () => {
           </Col>
         </Row>
 
-        {/* 可视化画布 */}
-        <div className="w-full h-125 border border-gray-200 rounded-lg overflow-hidden bg-white">
+        {/* 画布 */}
+        <div className="w-full h-125 border border-gray-300 rounded-lg overflow-hidden bg-white">
           <canvas ref={canvasRef} className="w-full h-full" />
         </div>
       </Card>
     </div>
   );
 };
+
 export default BuffonNeedleSimulation;

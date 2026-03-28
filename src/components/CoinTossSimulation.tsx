@@ -11,6 +11,7 @@ import {
 } from "antd";
 import { ReloadOutlined, PlayCircleOutlined } from "@ant-design/icons";
 import * as echarts from "echarts";
+import { getSecureRandom } from "../utils";
 
 const { Title, Text } = Typography;
 
@@ -138,7 +139,7 @@ const CoinTossSimulation: React.FC = () => {
 
   // 单次抛硬币（返回是否正面）
   const tossCoin = (): boolean => {
-    return Math.random() > 0.5;
+    return getSecureRandom() > 0.5;
   };
 
   // 开始/暂停模拟

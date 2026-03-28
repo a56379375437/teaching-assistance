@@ -16,3 +16,17 @@ export const findOutliers = (data: number[]): number[] => {
 
   return data.filter(val => val < lowerBound || val > upperBound);
 };
+
+//生成随机的函数
+/**
+ * 生成密码学安全的 [0, 1) 随机数（CSPRNG）
+ * @returns 0 ~ 1 之间的随机浮点数
+ */
+export function getSecureRandom(): number {
+  // 创建 32 位无符号整数缓冲区
+  const array = new Uint32Array(1);
+  // 密码学安全随机填充
+  window.crypto.getRandomValues(array);
+  // 归一化到 [0, 1)
+  return array[0] / (0xFFFFFFFF + 1);
+}
