@@ -24,7 +24,8 @@ function getItem(
 
 // 主页左部菜单项、对应的路由和图标
 const items: MenuItem[] = [
-  getItem("模拟实验", mainkey, <UserOutlined />, [
+  getItem("知识单元", mainkey, <UserOutlined />, [
+    getItem("大数定理", experimentkey + "/lln"),
     getItem("蒲丰投针问题", experimentkey + "/buffon-needle"),
     getItem("测试", experimentkey + "/test"),
     getItem("抛硬币", experimentkey + "/coin"),

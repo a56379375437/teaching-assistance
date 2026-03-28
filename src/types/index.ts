@@ -2,7 +2,7 @@
 
 // 主要网址：
 export const mainkey = '/teaching-assistance'
-export const experimentkey = mainkey + "/experiment";
+export const experimentkey = mainkey + "/knowledge-unit";
 
 //针定义
 export type Needle = {

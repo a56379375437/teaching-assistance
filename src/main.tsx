@@ -9,6 +9,7 @@ import Buffon from './pages/Buffon.tsx'
 import Test from './pages/Test.tsx'
 import Coin from './pages/Coin.tsx'
 import Hongbao from './pages/Hongbao.tsx'
+import Lln from './pages/Lln.tsx'
 
 const router = createBrowserRouter([
   {
@@ -20,11 +21,15 @@ const router = createBrowserRouter([
         element: <Home />,
       },
       {
-        path: "experiment",
+        path: "knowledge-unit",
         children: [
           {
             path: "buffon-needle",
             element: <Buffon />,
+          },
+          {
+            path:"lln",
+            element:<Lln />,
           },
           {
             path: "test",
