@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Table,
   Button,
@@ -21,41 +21,12 @@ import {
   DeleteOutlined,
   RobotOutlined,
 } from '@ant-design/icons'
+import { CONFIG_ROUTE, KNOWLEDGE_UNIT_OPTIONS, QUESTION_TYPES, type Question } from '../types'
 
 const { Title } = Typography
 const { Option } = Select
 
-// 题目类型定义
-const QUESTION_TYPES = [
-  { label: '单选题', value: 'SINGLE_CHOICE' },
-  { label: '多选题', value: 'MULTIPLE_CHOICE' },
-  { label: '判断题', value: 'JUDGMENT' },
-  { label: '填空题', value: 'FILL_BLANK' },
-  { label: '计算题', value: 'CALCULATION' },
-  { label: '简答题', value: 'SHORT_ANSWER' },
-]
-// 知识点枚举映射
-const KNOWLEDGE_UNIT_OPTIONS = [
-  { label: '概率论基础', value: 'PROBABILITY_BASE' },
-  { label: '随机变量', value: 'RANDOM_VARIABLE' },
-  { label: '数字特征', value: 'DIGITAL_CHARACTER' },
-  { label: '大数定律', value: 'LARGE_NUMBER_LAW' },
-  { label: '数理统计', value: 'MATHEMATICAL_STAT' },
-  { label: '点估计', value: 'POINT_ESTIMATION' },
-  { label: '假设检验', value: 'HYPOTHESIS_TEST' },
-]
-interface Question {
-  id?: number
-  title: string
-  type: string
-  level: string
-  knowledgeUnit: string
-  score: number
-  options?: { content: string; isCorrect: boolean }[]
-  answer?: string
-}
-
-const Test: React.FC = () => {
+export default function QuestionManagement() {
   const [data, setData] = useState<Question[]>([])
   const [loading, setLoading] = useState(false)
   const [isModalVisible, setIsModalVisible] = useState(false)
@@ -73,7 +44,7 @@ const Test: React.FC = () => {
   const fetchData = async (page = 1, pageSize = 10) => {
     setLoading(true)
     try {
-      // Fetch 处理查询参数需要手动拼接
+      // Fetch发起请求
       const params = new URLSearchParams({
         page: page.toString(),
         limit: pageSize.toString(),
@@ -143,7 +114,7 @@ const Test: React.FC = () => {
         submitData.options = []
       }
 
-      const url = editingId ? `/api/questions/${editingId}` : '/api/questions'
+      const url = editingId ? CONFIG_ROUTE.backendQuestion+`${editingId}` : CONFIG_ROUTE.backendQuestion
       const method = editingId ? 'PUT' : 'POST'
 
       const response = await fetch(url, {
@@ -163,20 +134,20 @@ const Test: React.FC = () => {
       setIsModalVisible(false)
       fetchData(editingId ? pagination.current : 1)
     } catch (error: any) {
-      message.error(error.message || '操作失败');
+      message.error(error.message || '操作失败')
     }
-  };
+  }
 
   // 4. AI 自动生成题目 (POST 请求)
   const handleAIGenerate = async () => {
     const prompt = form.getFieldValue('title')
     if (!prompt || prompt.length < 5) {
-      return message.warning('请先在题目标题处输入大致的题目要求或知识点')
+      return message.warning('请先在题目标题处输入大致的题目要求或知识点(5个字以上)')
     }
 
     setAiLoading(true)
     try {
-      const response = await fetch('/api/ai/generate', {
+      const response = await fetch(CONFIG_ROUTE.backendAiQuestion, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -209,7 +180,7 @@ const Test: React.FC = () => {
           { content: '选项B', isCorrect: false },
         ],
       })
-      message.info('模拟：AI 已根据标题填充了默认选项')
+      message.info('模拟:AI请求发送失败,请向管理者反馈该情况,已根据标题填充了默认选项')
     } finally {
       setAiLoading(false)
     }
@@ -229,7 +200,13 @@ const Test: React.FC = () => {
         </Tag>
       ),
     },
-    { title: '知识单元', dataIndex: 'knowledgeUnit', key: 'knowledgeUnit',render:(val:string) => KNOWLEDGE_UNIT_OPTIONS.find(opt => opt.value === val)?.label || val },
+    {
+      title: '知识单元',
+      dataIndex: 'knowledgeUnit',
+      key: 'knowledgeUnit',
+      render: (val: string) =>
+        KNOWLEDGE_UNIT_OPTIONS.find(opt => opt.value === val)?.label || val,
+    },
     { title: '分值', dataIndex: 'score', key: 'score' },
     {
       title: '操作',
@@ -459,5 +436,3 @@ const Test: React.FC = () => {
     </div>
   )
 }
-
-export default Test

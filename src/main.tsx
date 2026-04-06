@@ -10,10 +10,12 @@ import Test from './pages/Test.tsx'
 import Coin from './pages/Coin.tsx'
 import Hongbao from './pages/Hongbao.tsx'
 import Lln from './pages/Lln.tsx'
+import { evaluationkey, experimentkey } from './types/index.ts'
+import QuestionManagement from './pages/QuestionManagement.tsx'
 
 const router = createBrowserRouter([
   {
-    path: "/teaching-assistance",
+    path: "/",
     element: <App />,
     children: [
       {
@@ -21,7 +23,7 @@ const router = createBrowserRouter([
         element: <Home />,
       },
       {
-        path: "knowledge-unit",
+        path: experimentkey,
         children: [
           {
             path: "buffon-needle",
@@ -42,6 +44,19 @@ const router = createBrowserRouter([
           {
             path: "hongbao",
             element: <Hongbao />,
+          },
+        ],
+      },
+      {
+        path: "404",
+        element: <NotFound />,
+      },
+      {
+        path: evaluationkey,
+        children: [
+          {
+            path: "question",
+            element: <QuestionManagement />,
           },
         ],
       },

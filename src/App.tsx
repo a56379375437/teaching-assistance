@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Layout, Menu, theme, type MenuProps } from "antd";
 import { Outlet, useLocation, useNavigate, type To } from "react-router";
 import { FileOutlined, TeamOutlined, UserOutlined } from "@ant-design/icons";
-import { experimentkey, mainkey } from "./types";
+import { evaluationkey, experimentkey } from "./types";
 
 const { Header, Content, Sider } = Layout;
 
@@ -24,20 +24,19 @@ function getItem(
 
 // 主页左部菜单项、对应的路由和图标
 const items: MenuItem[] = [
-  getItem("知识单元", mainkey, <UserOutlined />, [
-    getItem("大数定理", experimentkey + "/lln"),
-    getItem("蒲丰投针问题", experimentkey + "/buffon-needle"),
-    getItem("测试", experimentkey + "/test"),
-    getItem("抛硬币", experimentkey + "/coin"),
-    getItem("抢红包", experimentkey + "/hongbao"),
-    getItem("Alex", "5"),
+  getItem('知识单元', experimentkey, <UserOutlined />, [
+    getItem('大数定理', experimentkey + '/lln'),
+    getItem('蒲丰投针问题', experimentkey + '/buffon-needle'),
+    getItem('测试', experimentkey + '/test'),
+    getItem('抛硬币', experimentkey + '/coin'),
+    getItem('抢红包', experimentkey + '/hongbao'),
   ]),
-  getItem("试题练习", "/sub2", <TeamOutlined />, [
-    getItem("蒲丰投针问题", "6"),
-    getItem("Team 2", "8"),
+  getItem('测评管理', evaluationkey, <TeamOutlined />, [
+    getItem('试题管理', evaluationkey + '/question'),
+    getItem('测评效果', '8'),
   ]),
-  getItem("使用指南", mainkey + "/guide", <FileOutlined />),
-];
+  getItem('使用指南', '/guide', <FileOutlined />),
+]
 
 const App: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);

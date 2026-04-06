@@ -1,7 +1,6 @@
 import { Result, Button, Space } from "antd";
 import { SmileOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router";
-import { mainkey } from "../types";
 
 export default function NotFound() {
   const navigate = useNavigate();
@@ -17,7 +16,7 @@ export default function NotFound() {
           <Button type="primary" onClick={() => navigate(-1)}>
             返回上一页
           </Button>
-          <Button onClick={() => navigate(mainkey)}>回到首页</Button>
+          <Button onClick={() => navigate('/')}>回到首页</Button>
         </Space>
       }
       style={{ minHeight: "80vh", display: "flex", alignItems: "center" }}
