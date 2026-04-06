@@ -114,7 +114,7 @@ export default function QuestionManagement() {
         submitData.options = []
       }
 
-      const url = editingId ? CONFIG_ROUTE.backendQuestion+`${editingId}` : CONFIG_ROUTE.backendQuestion
+      const url = editingId ? CONFIG_ROUTE.backendQuestion+`/${editingId}` : CONFIG_ROUTE.backendQuestion
       const method = editingId ? 'PUT' : 'POST'
 
       const response = await fetch(url, {

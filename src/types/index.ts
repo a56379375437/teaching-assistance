@@ -2,24 +2,24 @@
 
 // 主要网址：
 // 线上模拟实验
-export const experimentkey = "/knowledge-unit";
+export const experimentkey = '/knowledge-unit'
 // 学习效果测评
-export const evaluationkey = "/evaluation";
+export const evaluationkey = '/evaluation'
 
 //路由映射
 export const CONFIG_ROUTE = {
   // 后端路由
-  backendQuestion: "/api/questions", // 题目
-  backendAiQuestion: "/api/aiquestion", // ai生成题目
+  backendQuestion: '/api/questions', // 题目
+  backendAiQuestion: '/api/aiquestion', // ai生成题目
 }
 
 //针定义(用于浦丰投针实验)
 export type Needle = {
-  x: number;
-  y: number;
-  angle: number;
-  intersect: boolean;
-};
+  x: number
+  y: number
+  angle: number
+  intersect: boolean
+}
 
 // 题目类型定义
 export const QUESTION_TYPES = [
@@ -74,4 +74,35 @@ export interface QuestionList {
   KNOWLEDGE_UNIT_OPTIONS: string[]
   questions: Question[]
   totalPages: number
+}
+
+// 使用zustand存储的数据格式
+export interface QuestionStore {
+  // 数据状态
+  questions: Question[]
+  total: number
+  pageNum: number
+  pageSize: number
+
+  //筛选状态
+  searchText: string
+  selectedType: string // 对应 QUESTION_TYPES
+  selectedLevel: string // 对应 QUESTION_LEVELS
+  selectedKnowledgeUnit: string // 对应 KNOWLEDGE_UNIT_OPTIONS
+
+  //操作
+  setQuestions: (questions: Question[]) => void
+  setTotal: (total: number) => void
+  setPageNum: (pageNum: number) => void
+  setPageSize: (pageSize: number) => void
+
+  // 筛选设置
+  setSearchText: (text: string) => void
+  setFilterType: (type: string) => void
+  setFilterLevel: (level: string) => void
+  setFilterKnowledgeUnit: (unit: string) => void
+
+  // 重置
+  resetFilters: () => void
+  resetAll: () => void
 }
