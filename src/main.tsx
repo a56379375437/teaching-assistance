@@ -8,7 +8,6 @@ import Guide from './pages/Guide.tsx'
 import Buffon from './pages/Buffon.tsx'
 import Test from './pages/Test.tsx'
 import Coin from './pages/Coin.tsx'
-import Hongbao from './pages/Hongbao.tsx'
 import Lln from './pages/Lln.tsx'
 import { evaluationkey, experimentkey } from './types/index.ts'
 import QuestionManagement from './pages/QuestionManagement.tsx'
@@ -40,10 +39,6 @@ const router = createBrowserRouter([
           {
             path: "coin",
             element: <Coin />,
-          },
-          {
-            path: "hongbao",
-            element: <Hongbao />,
           },
         ],
       },

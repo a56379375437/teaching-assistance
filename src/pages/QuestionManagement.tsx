@@ -101,14 +101,13 @@ export default function QuestionManagement() {
         submitData.answer = values.answer === 'true'
       }
 
-      // 3. 处理选择题选项，添加缺失的 order 字段
+      //处理选择题选项，添加缺失的 order 字段
       if (values.options && Array.isArray(values.options)) {
-        submitData.options = values.options.map((opt: any, index: number) => ({
-          ...opt,
-          order: index + 1, // 注入数据库需要的 order 字段，从 1 开始
-          // 顺便确保 isCorrect 是布尔值，防止 Select 组件传回字符串
-          isCorrect: opt.isCorrect === true || opt.isCorrect === 'true',
-        }))
+         submitData.options = values.options.map((opt: any, index: number) => ({
+           content: opt.content,
+           isCorrect: !!opt.isCorrect, // 强制转布尔
+           order: opt.order || index + 1, // 如果 AI 没给 order，按索引生成
+         }))
       } else {
         // 如果是非选择题，确保 options 是空数组
         submitData.options = []
@@ -140,9 +139,15 @@ export default function QuestionManagement() {
 
   // 4. AI 自动生成题目 (POST 请求)
   const handleAIGenerate = async () => {
-    const prompt = form.getFieldValue('title')
-    if (!prompt || prompt.length < 5) {
-      return message.warning('请先在题目标题处输入大致的题目要求或知识点(5个字以上)')
+    // 获取当前表单已选的值，作为 AI 的参考上下文
+    const currentValues = form.getFieldsValue([
+      'title',
+      'type',
+      'knowledgeUnit',
+    ])
+
+    if (!currentValues.title || currentValues.title.length < 5) {
+      return message.warning('请先在题干处输入大致的题目要求(5个字以上)')
     }
 
     setAiLoading(true)
@@ -152,35 +157,39 @@ export default function QuestionManagement() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          prompt: currentValues.title,
+          type: currentValues.type,
+          knowledgeUnit: currentValues.knowledgeUnit,
+        }),
       })
 
       if (!response.ok) throw new Error('AI生成失败')
 
       const resData = await response.json()
+      if (resData.code !== 200) throw new Error(resData.message)
+
       const aiResult = resData.data
 
+      // 用 AI 润色后的结果填充表单
       form.setFieldsValue({
-        type: aiResult.type || 'SINGLE_CHOICE',
-        level: aiResult.level || 'MEDIUM',
+        title: aiResult.title, // 更新为 AI 润色后的专业标题
+        type: aiResult.type,
+        level: aiResult.level,
         knowledgeUnit: aiResult.knowledgeUnit,
         score: aiResult.score || 5,
         answer: aiResult.answer,
-        options: aiResult.options,
+        options: aiResult.options?.map((opt: any, index: number) => ({
+          ...opt,
+          order: index + 1,
+        })),
       })
-      message.success('AI 已成功为您润色并生成题目详情')
-    } catch (error) {
-      // 模拟填充逻辑保持不变
-      form.setFieldsValue({
-        knowledgeUnit: 'LARGE_NUMBER_LAW', // 必须是枚举中的一个，不能是中文
-        score: 5,
-        type: 'SINGLE_CHOICE',
-        options: [
-          { content: '选项A', isCorrect: true },
-          { content: '选项B', isCorrect: false },
-        ],
-      })
-      message.info('模拟:AI请求发送失败,请向管理者反馈该情况,已根据标题填充了默认选项')
+
+      message.success('AI 已根据您的要求成功润色并生成题目')
+    } catch (error: any) {
+      console.error(error)
+      // 失败兜底
+      message.error('AI请求失败: ' + error.message)
     } finally {
       setAiLoading(false)
     }

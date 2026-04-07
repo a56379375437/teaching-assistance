@@ -30,3 +30,4 @@ export function getSecureRandom(): number {
   // 归一化到 [0, 1)
   return array[0] / (0xFFFFFFFF + 1);
 }
+

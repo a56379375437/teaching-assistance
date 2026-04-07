@@ -77,32 +77,19 @@ export interface QuestionList {
 }
 
 // 使用zustand存储的数据格式
-export interface QuestionStore {
-  // 数据状态
-  questions: Question[]
-  total: number
-  pageNum: number
-  pageSize: number
+export interface QuestionState {
+  questions: any[]
+  userAnswers: Record<number, any> // key: questionId, value: user input
+  currentStep: number
+  isFinished: boolean
+  showReview: boolean
+  score: number
 
-  //筛选状态
-  searchText: string
-  selectedType: string // 对应 QUESTION_TYPES
-  selectedLevel: string // 对应 QUESTION_LEVELS
-  selectedKnowledgeUnit: string // 对应 KNOWLEDGE_UNIT_OPTIONS
-
-  //操作
-  setQuestions: (questions: Question[]) => void
-  setTotal: (total: number) => void
-  setPageNum: (pageNum: number) => void
-  setPageSize: (pageSize: number) => void
-
-  // 筛选设置
-  setSearchText: (text: string) => void
-  setFilterType: (type: string) => void
-  setFilterLevel: (level: string) => void
-  setFilterKnowledgeUnit: (unit: string) => void
-
-  // 重置
-  resetFilters: () => void
-  resetAll: () => void
+  // Actions
+  setQuestions: (questions: any[]) => void
+  setAnswer: (questionId: number, answer: any) => void
+  nextStep: () => void
+  prevStep: () => void
+  finishQuestion: () => void
+  resetQuestion: () => void
 }

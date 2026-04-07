@@ -53,7 +53,7 @@ const MonteCarloIntegral: React.FC = () => {
   // 真实积分值（用于对比）
   const realIntegral = 2; // ∫0^π sinx dx = 2
 
-  // ====================== 初始化两个图表 ======================
+  // 初始化两个图表
   useEffect(() => {
     // 散点图
     if (scatChartRef.current) {
@@ -75,7 +75,7 @@ const MonteCarloIntegral: React.FC = () => {
     };
   }, []);
 
-  // ====================== 绘制散点图 ======================
+  // 绘制散点图
   const renderScatChart = (
     points: { x: number; y: number; type: 0 | 1 }[],
     chart: echarts.ECharts,
@@ -122,7 +122,7 @@ const MonteCarloIntegral: React.FC = () => {
     chart.setOption(option);
   };
 
-  // ====================== 绘制收敛曲线 ======================
+  // 绘制收敛曲线
   const renderLineChart = (
     data: ConvergenceDataItem[],
     chart: echarts.ECharts,
@@ -155,7 +155,7 @@ const MonteCarloIntegral: React.FC = () => {
     chart.setOption(option);
   };
 
-  // ====================== 单次投点 ======================
+  // 单次投点
   const throwOnePoint = () => {
     const x = a + getSecureRandom() * (b - a);
     const y = getSecureRandom() * maxY;
@@ -163,7 +163,7 @@ const MonteCarloIntegral: React.FC = () => {
     return { x, y, isUnder: y <= fx };
   };
 
-  // ====================== 开始模拟 ======================
+  // 开始模拟
   const startSimulate = () => {
     if (isSimulating) return;
     reset();
@@ -203,7 +203,7 @@ const MonteCarloIntegral: React.FC = () => {
     }, 10);
   };
 
-  // ====================== 重置 ======================
+  // 重置
   const reset = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setIsSimulating(false);
@@ -214,7 +214,7 @@ const MonteCarloIntegral: React.FC = () => {
     if (lineChartRefCur.current) renderLineChart([], lineChartRefCur.current);
   };
 
-  // ====================== 界面 ======================
+  // 界面
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <Card className="shadow-md">

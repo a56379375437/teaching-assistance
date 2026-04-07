@@ -29,7 +29,6 @@ const items: MenuItem[] = [
     getItem('蒲丰投针问题', experimentkey + '/buffon-needle'),
     getItem('测试', experimentkey + '/test'),
     getItem('抛硬币', experimentkey + '/coin'),
-    getItem('抢红包', experimentkey + '/hongbao'),
   ]),
   getItem('测评管理', evaluationkey, <TeamOutlined />, [
     getItem('试题管理', evaluationkey + '/question'),

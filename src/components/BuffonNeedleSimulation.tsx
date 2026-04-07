@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from "react";
+import React, { useRef, useState, useEffect, useCallback } from 'react'
 import {
   InputNumber,
   Button,
@@ -8,265 +8,225 @@ import {
   Row,
   Col,
   Statistic,
-} from "antd";
-import { ReloadOutlined } from "@ant-design/icons";
-import type { Needle } from "../types";
-import { getSecureRandom } from "../utils";
+  Progress,
+} from 'antd'
+import { ReloadOutlined, PlayCircleOutlined } from '@ant-design/icons'
 
-const { Title, Text } = Typography;
+const { Title, Text } = Typography
 
-// 蒲丰投针模拟组件
 const BuffonNeedleSimulation: React.FC = () => {
-  // 核心参数：线间距d、针长L、投针次数n
-  const [lineDistance, setLineDistance] = useState<number>(10); // 平行线间距，默认10
-  const [needleLength, setNeedleLength] = useState<number>(6); // 针长，默认6（需小于线间距）
-  const [totalTrials, setTotalTrials] = useState<number>(1000000); // 总投针次数
-  const [intersectCount, setIntersectCount] = useState<number>(0); // 相交次数
-  const [piApproximation, setPiApproximation] = useState<number>(0); // π的近似值
-  const [, setNeedles] = useState<Needle[]>([]); // 存储针的数据
-  const canvasRef = useRef<HTMLCanvasElement>(null); // Canvas 引用
+  // 参数状态
+  const [lineDistance, setLineDistance] = useState<number>(10)
+  const [needleLength, setNeedleLength] = useState<number>(8)
+  const [totalTrials, setTotalTrials] = useState<number>(100000)
 
-  // 初始化/重置画布
-  const initCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+  // 结果状态
+  const [intersectCount, setIntersectCount] = useState<number>(0)
+  const [piApproximation, setPiApproximation] = useState<number>(0)
+  const [isSimulating, setIsSimulating] = useState<boolean>(false)
+  const [progress, setProgress] = useState<number>(0)
 
-    // 设置画布尺寸（适配容器）
-    canvas.width = canvas.parentElement?.clientWidth || 800;
-    canvas.height = 500;
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
-    // 清空画布
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // 初始化画布（仅绘制背景平行线）
+  const drawBackground = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
 
-    ctx.strokeStyle = "#213211";
-    ctx.lineWidth = 1.5; // 线条加粗
-    ctx.setLineDash([5, 3]); // 虚线样式
-    const step = lineDistance * 10;
-    for (let y = 0; y < canvas.height; y += step) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
-      ctx.stroke();
+    canvas.width = canvas.offsetWidth
+    canvas.height = 400
+    const d = lineDistance * 20 // 缩放比例
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.strokeStyle = '#00FF00'
+    ctx.lineWidth = 1
+
+    for (let y = 0; y < canvas.height; y += d) {
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(canvas.width, y)
+      ctx.stroke()
     }
-    ctx.setLineDash([]); // 重置为实线，避免影响针的绘制
-    // ========================================================
-  }, [lineDistance]);
+  }, [lineDistance])
 
-  // 绘制单根针
-  const drawNeedle = useCallback(
-    (
-      ctx: CanvasRenderingContext2D,
-      x: number,
-      y: number,
-      angle: number,
-      length: number,
-      intersect: boolean,
-    ) => {
-      ctx.strokeStyle = intersect ? "#ef4444" : "#3b82f6"; // 相交红色，不相交蓝色
-      ctx.lineWidth = 2;
-
-      // 计算针的两个端点
-      const halfLen = length / 2;
-      const x1 = x - halfLen * Math.cos(angle);
-      const y1 = y - halfLen * Math.sin(angle);
-      const x2 = x + halfLen * Math.cos(angle);
-      const y2 = y + halfLen * Math.sin(angle);
-
-      // 绘制针
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-    },
-    [],
-  );
-
-  // 模拟投针并绘制
-  const simulateNeedles = useCallback(() => {
-    initCanvas();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const newNeedles: Needle[] = [];
-    let newIntersectCount = 0;
-    const step = lineDistance * 10;
-    const scaledNeedleLength = needleLength * 10;
-
-    for (let i = 0; i < totalTrials; i++) {
-      // 使用高质量安全随机数
-      const x = getSecureRandom() * canvas.width;
-      const y = getSecureRandom() * canvas.height;
-      const angle = getSecureRandom() * Math.PI;
-
-      // 相交判断
-      const distanceToLine = y % step;
-      const criticalDistance = (scaledNeedleLength / 2) * Math.sin(angle);
-      const intersect =
-        distanceToLine < criticalDistance ||
-        step - distanceToLine < criticalDistance;
-
-      if (intersect) newIntersectCount++;
-      newNeedles.push({ x, y, angle, intersect });
-
-      // 只绘制前1000根针
-      if (i < 1000) {
-        drawNeedle(ctx, x, y, angle, scaledNeedleLength, intersect);
-      }
-    }
-
-    setNeedles(newNeedles);
-    setIntersectCount(newIntersectCount);
-
-    // 计算π
-    const probability = newIntersectCount / totalTrials;
-    const pi =
-      probability > 0 ? (2 * needleLength) / (lineDistance * probability) : 0;
-    setPiApproximation(pi);
-  }, [initCanvas, lineDistance, needleLength, totalTrials, drawNeedle]);
-
-  // 重置模拟
-  const resetSimulation = () => {
-    setIntersectCount(0);
-    setPiApproximation(0);
-    setNeedles([]);
-    initCanvas();
-  };
-
-  // 初始化画布
   useEffect(() => {
-    initCanvas();
-    window.addEventListener("resize", initCanvas);
-    return () => window.removeEventListener("resize", initCanvas);
-  }, [initCanvas]);
+    drawBackground()
+  }, [drawBackground])
 
-  // 点击模拟
-  const handleSimulate = () => {
-    if (totalTrials <= 0 || needleLength <= 0 || lineDistance <= 0) return;
-    simulateNeedles();
-  };
+  // 执行模拟
+  const runSimulation = async () => {
+    setIsSimulating(true)
+    setIntersectCount(0)
+    setProgress(0)
 
-  // 参数限制
-  const handleNeedleLengthChange = (value: number | null) => {
-    if (value !== null) {
-      const clampedValue = Math.min(value, lineDistance);
-      setNeedleLength(clampedValue);
-    }
-  };
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (ctx) drawBackground()
 
-  const handleLineDistanceChange = (value: number | null) => {
-    if (value !== null) {
-      setLineDistance(value);
-      if (needleLength > value) {
-        setNeedleLength(value);
+    let currentIntersects = 0
+    const batchSize = 10000 // 分批处理防止卡顿
+    const total = totalTrials
+    const L = needleLength
+    const d = lineDistance
+
+    // 内部运行逻辑
+    for (let i = 0; i < total; i += batchSize) {
+      const currentBatch = Math.min(batchSize, total - i)
+
+      for (let j = 0; j < currentBatch; j++) {
+        // 核心数学改进
+        // 针中心距离最近平行线的距离 h，范围 [0, d/2]
+        const h = Math.random() * (d / 2)
+        // 针与平行线的夹角 theta，范围 [0, PI/2]
+        const theta = Math.random() * (Math.PI / 2)
+
+        // 判断相交条件: h <= (L/2) * sin(theta)
+        if (h <= (L / 2) * Math.sin(theta)) {
+          currentIntersects++
+        }
+
+        // 仅可视化前 500 根针
+        if (i + j < 500 && ctx && canvas) {
+          drawSingleNeedle(ctx, canvas, L, d)
+        }
       }
+
+      // 更新进度和临时结果
+      setIntersectCount(currentIntersects)
+      const prob = currentIntersects / (i + currentBatch)
+      setPiApproximation(prob > 0 ? (2 * L) / (d * prob) : 0)
+      setProgress(Math.round(((i + currentBatch) / total) * 100))
+
+      // 给浏览器喘息机会，防止 UI 冻结
+      await new Promise(resolve => setTimeout(resolve, 0))
     }
-  };
+
+    setIsSimulating(false)
+  }
+
+  // 随机绘制一根针（仅用于展示）
+  const drawSingleNeedle = (
+    ctx: CanvasRenderingContext2D,
+    canvas: HTMLCanvasElement,
+    L: number,
+    d: number
+  ) => {
+    const scale = 20
+    const x = Math.random() * canvas.width
+    const y = Math.random() * canvas.height
+    const angle = Math.random() * Math.PI * 2
+
+    const x1 = x - ((L * scale) / 2) * Math.cos(angle)
+    const y1 = y - ((L * scale) / 2) * Math.sin(angle)
+    const x2 = x + ((L * scale) / 2) * Math.cos(angle)
+    const y2 = y + ((L * scale) / 2) * Math.sin(angle)
+
+    // 判断这根可视化的针是否相交
+    const dPixels = d * scale
+    const yMin = Math.min(y1, y2)
+    const yMax = Math.max(y1, y2)
+    // 如果针跨越了 n * dPixels 的线
+    const isIntersect =
+      Math.floor(yMin / dPixels) !== Math.floor(yMax / dPixels)
+
+    ctx.beginPath()
+    ctx.strokeStyle = isIntersect
+      ? 'rgba(239, 68, 68, 0.6)'
+      : 'rgba(59, 130, 246, 0.4)'
+    ctx.lineWidth = 1
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+  }
 
   return (
-    <div className="container mx-auto p-6">
-      <Card className="shadow-lg mb-6">
-        <Title level={3} className="mb-4">
-          蒲丰投针问题模拟
-        </Title>
-        <Text type="secondary" className="mb-6 block">
-          原理：通过随机投针模拟计算π的近似值，公式：π ≈ 2L / (d *
-          p)（L=针长，d=线间距，p=相交概率）
-        </Text>
+    <Card className="mx-auto my-10 shadow-2xl">
+      <Title level={2} text-center>
+        蒲丰投针（Buffon's Needle）实验
+      </Title>
 
-        {/* 参数调节 */}
-        <Row gutter={[16, 16]} className="mb-6">
-          <Col xs={24} md={8}>
-            <Space className="w-full">
-              <Text>平行线间距 (d)：{lineDistance} cm</Text>
-              <InputNumber
-                min={5}
-                max={20}
-                step={0.5}
-                value={lineDistance}
-                onChange={handleLineDistanceChange}
-                className="w-full"
-              />
-            </Space>
-          </Col>
+      <Row gutter={24}>
+        <Col span={16}>
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 relative">
+            <canvas ref={canvasRef} className="w-full block" />
+            {isSimulating && (
+              <div className="absolute inset-0 bg-white/50 flex items-center justify-center">
+                <Progress type="circle" percent={progress} />
+              </div>
+            )}
+          </div>
+        </Col>
 
-          <Col xs={24} md={8}>
-            <Space className="w-full">
-              <Text>针长 (L)：{needleLength} cm（≤线间距）</Text>
-              <InputNumber
-                min={1}
-                max={lineDistance}
-                step={0.5}
-                value={needleLength}
-                onChange={handleNeedleLengthChange}
-                className="w-full"
-              />
-            </Space>
-          </Col>
-
-          <Col xs={24} md={8}>
-            <Space className="w-full">
-              <Text>投针总次数：{totalTrials} 次</Text>
-              <InputNumber
-                min={10}
-                max={1000000}
-                step={100}
-                value={totalTrials}
-                onChange={(value) => value !== null && setTotalTrials(value)}
-                className="w-full"
-              />
-            </Space>
-          </Col>
-        </Row>
-
-        {/* 按钮 */}
-        <Space className="mb-6">
-          <Button
-            type="primary"
-            onClick={handleSimulate}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            开始模拟
-          </Button>
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={resetSimulation}
-            className="bg-gray-200 hover:bg-gray-300"
-          >
-            重置
-          </Button>
-        </Space>
-
-        {/* 结果 */}
-        <Row gutter={[16, 16]} className="mb-6">
-          <Col xs={8}>
-            <Statistic title="相交次数" value={intersectCount} />
-          </Col>
-          <Col xs={8}>
+        <Col span={8}>
+          <Space direction="vertical" className="w-full">
             <Statistic
-              title="相交概率"
-              value={
-                totalTrials > 0
-                  ? (intersectCount / totalTrials).toFixed(4)
-                  : "0.0000"
-              }
+              title="π 近似值"
+              value={piApproximation}
+              precision={6}
+              valueStyle={{ color: '#3f8600' }}
             />
-          </Col>
-          <Col xs={8}>
-            <Statistic title="π的近似值" value={piApproximation.toFixed(4)} />
-          </Col>
-        </Row>
+            <Statistic title="相交次数" value={intersectCount} />
+            <Statistic title="总尝试次数" value={totalTrials} />
 
-        {/* 画布 */}
-        <div className="w-full h-125 border border-gray-300 rounded-lg overflow-hidden bg-white">
-          <canvas ref={canvasRef} className="w-full h-full" />
-        </div>
-      </Card>
-    </div>
-  );
-};
+            <div className="mt-4 p-4 bg-blue-50 rounded">
+              <Text strong>参数设置</Text>
+              <div className="mt-2">
+                <Text>线间距 (d)</Text>
+                <InputNumber
+                  min={5}
+                  max={20}
+                  value={lineDistance}
+                  onChange={v => setLineDistance(v || 10)}
+                  className="w-full"
+                />
+              </div>
+              <div className="mt-2">
+                <Text>针长 (L)</Text>
+                <InputNumber
+                  min={1}
+                  max={lineDistance}
+                  value={needleLength}
+                  onChange={v => setNeedleLength(v || 8)}
+                  className="w-full"
+                />
+              </div>
+              <div className="mt-2">
+                <Text>模拟样本量</Text>
+                <InputNumber
+                  min={1000}
+                  max={10000000}
+                  step={10000}
+                  value={totalTrials}
+                  onChange={v => setTotalTrials(v || 100000)}
+                  className="w-full"
+                />
+              </div>
+            </div>
 
-export default BuffonNeedleSimulation;
+            <Button
+              type="primary"
+              block
+              size="large"
+              icon={<PlayCircleOutlined />}
+              onClick={runSimulation}
+              loading={isSimulating}
+            >
+              开始计算
+            </Button>
+            <Button
+              block
+              icon={<ReloadOutlined />}
+              onClick={() => window.location.reload()}
+            >
+              重置
+            </Button>
+          </Space>
+        </Col>
+      </Row>
+    </Card>
+  )
+}
+
+export default BuffonNeedleSimulation

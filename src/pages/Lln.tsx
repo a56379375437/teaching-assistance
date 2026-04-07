@@ -2,6 +2,7 @@ import { Typography } from "antd";
 import BuffonNeedleSimulation from "../components/BuffonNeedleSimulation";
 import CoinTossSimulation from "../components/CoinTossSimulation";
 import MonteCarloPiSimulation from "../components/MonteCarloPiSimulation";
+import ExperimentQuestion from "../components/ExperimentQuestion";
 const { Title, Paragraph } = Typography;
 
 export default function Lln() {
@@ -50,6 +51,9 @@ export default function Lln() {
         </Paragraph>
         <Paragraph>
           <MonteCarloPiSimulation/>
+        </Paragraph>
+        <Paragraph>
+          <ExperimentQuestion knowledgeUnit='LARGE_NUMBER_LAW' />
         </Paragraph>
       </Typography>
     </div>
