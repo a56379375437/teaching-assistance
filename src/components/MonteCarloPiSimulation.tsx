@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from 'react'
 import {
   InputNumber,
   Button,
@@ -8,289 +8,295 @@ import {
   Row,
   Col,
   Statistic,
-} from "antd";
-import { ReloadOutlined, PlayCircleOutlined } from "@ant-design/icons";
-import * as echarts from "echarts";
-import { getSecureRandom } from "../utils";
+  Slider,
+} from 'antd'
+import {
+  ReloadOutlined,
+  PlayCircleOutlined,
+  PauseCircleOutlined,
+} from '@ant-design/icons'
+import * as echarts from 'echarts'
 
-const { Title, Text } = Typography;
+const { Text } = Typography
 
-// 数据类型定义
-interface ConvergenceDataItem {
-  count: number;
-  integral: number;
-}
-
-// 被积函数：y = f(x)，可自行修改
-const f = (x: number): number => {
-  return Math.sin(x); // 演示：sin(x)
-  // return x * x;    // 也可以换成 x²
-  // return Math.exp(-x * x); // 高斯函数
-};
-
-// 积分区间 [a, b]
-const a = 0;
-const b = Math.PI;
-
-// 函数最大值（用于确定矩形上界）
-const maxY = 1;
+// 积分参数
+const f = (x: number) => Math.sin(x)
+const a = 0
+const b = Math.PI
+const maxY = 1
+const rectArea = (b - a) * maxY
 
 const MonteCarloIntegral: React.FC = () => {
-  // 核心参数
-  const [totalPoints, setTotalPoints] = useState<number>(2000);
-  const [underCount, setUnderCount] = useState<number>(0); // 曲线下方点数
-  const [totalCount, setTotalCount] = useState<number>(0); // 总点数
-  const [currentIntegral, setCurrentIntegral] = useState<number>(0);
-  const [isSimulating, setIsSimulating] = useState<boolean>(false);
+  const [totalPoints, setTotalPoints] = useState<number>(100000)
+  const [isSimulating, setIsSimulating] = useState(false)
 
-  // 图表引用
-  const scatChartRef = useRef<HTMLDivElement>(null);
-  const lineChartRef = useRef<HTMLDivElement>(null);
-  const scatChartRefCur = useRef<echarts.ECharts | null>(null);
-  const lineChartRefCur = useRef<echarts.ECharts | null>(null);
-  const timerRef = useRef<number | null>(null);
+  // 核心统计数据 (使用 Ref 保证计算效率)
+  const statsRef = useRef({
+    under: 0,
+    total: 0,
+    lineData: [] as [number, number][],
+    scatterUnder: [] as [number, number][],
+    scatterAbove: [] as [number, number][],
+  })
 
-  // 真实积分值（用于对比）
-  const realIntegral = 2; // ∫0^π sinx dx = 2
+  // 用于触发 UI 刷新的状态
+  const [displayStats, setDisplayStats] = useState({
+    total: 0,
+    under: 0,
+    integral: 0,
+  })
 
-  // 初始化两个图表
+  const scatRef = useRef<HTMLDivElement>(null)
+  const lineRef = useRef<HTMLDivElement>(null)
+  const scatChart = useRef<echarts.ECharts | null>(null)
+  const lineChart = useRef<echarts.ECharts | null>(null)
+  const requestRef = useRef<number>(0)
+
+  // 初始化图表
   useEffect(() => {
-    // 散点图
-    if (scatChartRef.current) {
-      const chart = echarts.init(scatChartRef.current);
-      scatChartRefCur.current = chart;
-      renderScatChart([], chart);
-    }
-    // 收敛图
-    if (lineChartRef.current) {
-      const chart = echarts.init(lineChartRef.current);
-      lineChartRefCur.current = chart;
-      renderLineChart([], chart);
-    }
+    if (scatRef.current && lineRef.current) {
+      scatChart.current = echarts.init(scatRef.current)
+      lineChart.current = echarts.init(lineRef.current)
 
+      scatChart.current.setOption({
+        title: {
+          text: '随机投点可视化 (仅展示最近样本)',
+          left: 'center',
+          textStyle: { fontSize: 14 },
+        },
+        xAxis: { min: a, max: b },
+        yAxis: { min: 0, max: maxY },
+        series: [
+          {
+            name: 'f(x)',
+            type: 'line',
+            smooth: true,
+            showSymbol: false,
+            data: Array.from({ length: 100 }, (_, i) => [
+              a + (i / 99) * (b - a),
+              f(a + (i / 99) * (b - a)),
+            ]),
+            lineStyle: { color: 'red' },
+          },
+          {
+            name: '下方',
+            type: 'scatter',
+            data: [],
+            symbolSize: 3,
+            itemStyle: { color: '#1677ff' },
+          },
+          {
+            name: '上方',
+            type: 'scatter',
+            data: [],
+            symbolSize: 3,
+            itemStyle: { color: '#bfbfbf' },
+          },
+        ],
+      })
+
+      lineChart.current.setOption({
+        title: {
+          text: '积分值收敛过程',
+          left: 'center',
+          textStyle: { fontSize: 14 },
+        },
+        xAxis: { type: 'value', name: '次数' },
+        yAxis: { min: 1.8, max: 2.2, name: '积分值' },
+        series: [
+          { name: '近似值', type: 'line', data: [], showSymbol: false },
+          {
+            name: '真实值',
+            type: 'line',
+            data: [
+              [0, 2],
+              [totalPoints, 2],
+            ],
+            lineStyle: { type: 'dashed', color: 'red' },
+          },
+        ],
+      })
+    }
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      scatChartRefCur.current?.dispose();
-      lineChartRefCur.current?.dispose();
-    };
-  }, []);
+      scatChart.current?.dispose()
+      lineChart.current?.dispose()
+    }
+  }, [])
 
-  // 绘制散点图
-  const renderScatChart = (
-    points: { x: number; y: number; type: 0 | 1 }[],
-    chart: echarts.ECharts,
-  ) => {
-    const under = points.filter((p) => p.type === 0);
-    const above = points.filter((p) => p.type === 1);
+  // 模拟主循环
+  const animate = () => {
+    const s = statsRef.current
+    if (s.total >= totalPoints) {
+      setIsSimulating(false)
+      return
+    }
 
-    const option = {
-      title: { text: "蒙特卡洛投点可视化", left: "center" },
-      xAxis: { min: a, max: b, name: "x" },
-      yAxis: { min: 0, max: maxY, name: "y" },
-      tooltip: { trigger: "item" },
+    // 批量处理
+    const batchSize = Math.ceil(totalPoints / 200)
+    const newScatterUnder: [number, number][] = []
+    const newScatterAbove: [number, number][] = []
+
+    for (let i = 0; i < batchSize && s.total < totalPoints; i++) {
+      const x = a + Math.random() * (b - a)
+      const y = Math.random() * maxY
+      s.total++
+      if (y <= f(x)) {
+        s.under++
+        if (newScatterUnder.length < 500) newScatterUnder.push([x, y])
+      } else {
+        if (newScatterAbove.length < 500) newScatterAbove.push([x, y])
+      }
+    }
+
+    const currentIntegral = (s.under / s.total) * rectArea
+
+    // 散点图只保留最新的一批点，防止 O(N) 渲染变慢
+    s.scatterUnder = newScatterUnder
+    s.scatterAbove = newScatterAbove
+
+    // 收敛曲线采样：每完成 1% 记录一个点
+    if (
+      s.total % Math.ceil(totalPoints / 100) === 0 ||
+      s.total === totalPoints
+    ) {
+      s.lineData.push([s.total, currentIntegral])
+    }
+
+    // 更新图表
+    scatChart.current?.setOption({
+      series: [{}, { data: s.scatterUnder }, { data: s.scatterAbove }],
+    })
+    lineChart.current?.setOption({
+      xAxis: { max: totalPoints },
       series: [
-        // 曲线
+        { data: s.lineData },
         {
-          name: "f(x)=sin(x)",
-          type: "line",
-          smooth: true,
-          symbol: "none",
-          lineStyle: { color: "red", width: 3 },
-          data: Array.from({ length: 100 }, (_, i) => {
-            const x = a + (i / 99) * (b - a);
-            return [x, f(x)];
-          }),
-        },
-        // 下方点
-        {
-          name: "曲线下方",
-          type: "scatter",
-          data: under.map((p) => [p.x, p.y]),
-          symbolSize: 4,
-          itemStyle: { color: "blue" },
-        },
-        // 上方点
-        {
-          name: "曲线上方",
-          type: "scatter",
-          data: above.map((p) => [p.x, p.y]),
-          symbolSize: 4,
-          itemStyle: { color: "gray" },
+          data: [
+            [0, 2],
+            [totalPoints, 2],
+          ],
         },
       ],
-    };
-    chart.setOption(option);
-  };
+    })
 
-  // 绘制收敛曲线
-  const renderLineChart = (
-    data: ConvergenceDataItem[],
-    chart: echarts.ECharts,
-  ) => {
-    const seriesData = data.map((item) => [item.count, item.integral]);
-    const realLine = data.map((item) => [item.count, realIntegral]);
+    // 统计
+    setDisplayStats({
+      total: s.total,
+      under: s.under,
+      integral: currentIntegral,
+    })
 
-    const option = {
-      title: { text: "积分值收敛曲线", left: "center" },
-      xAxis: { name: "投点次数", type: "value" },
-      yAxis: { name: "积分近似值", min: 1.5, max: 2.5 },
-      series: [
-        {
-          name: "模拟积分值",
-          type: "line",
-          smooth: true,
-          data: seriesData,
-          lineStyle: { color: "#1677ff" },
-          areaStyle: { opacity: 0.2 },
-        },
-        {
-          name: "真实值",
-          type: "line",
-          data: realLine,
-          lineStyle: { color: "red", type: "dashed" },
-          symbol: "none",
-        },
-      ],
-    };
-    chart.setOption(option);
-  };
+    requestRef.current = requestAnimationFrame(animate)
+  }
 
-  // 单次投点
-  const throwOnePoint = () => {
-    const x = a + getSecureRandom() * (b - a);
-    const y = getSecureRandom() * maxY;
-    const fx = f(x);
-    return { x, y, isUnder: y <= fx };
-  };
+  const handleToggle = () => {
+    if (isSimulating) {
+      cancelAnimationFrame(requestRef.current!)
+      setIsSimulating(false)
+    } else {
+      if (statsRef.current.total >= totalPoints) reset()
+      setIsSimulating(true)
+      requestRef.current = requestAnimationFrame(animate)
+    }
+  }
 
-  // 开始模拟
-  const startSimulate = () => {
-    if (isSimulating) return;
-    reset();
-    setIsSimulating(true);
-
-    let count = 0;
-    let under = 0;
-    const points: { x: number; y: number; type: 0 | 1 }[] = [];
-    const convData: ConvergenceDataItem[] = [];
-
-    timerRef.current = window.setInterval(() => {
-      if (count >= totalPoints) {
-        clearInterval(timerRef.current!);
-        setIsSimulating(false);
-        return;
-      }
-
-      count++;
-      const p = throwOnePoint();
-      if (p.isUnder) under++;
-
-      // 每10次更新一次图表，避免卡顿
-      if (count % 10 === 0 || count === totalPoints) {
-        const integral = (under / count) * (b - a) * maxY;
-        points.push({ x: p.x, y: p.y, type: p.isUnder ? 0 : 1 });
-        convData.push({ count, integral });
-
-        setTotalCount(count);
-        setUnderCount(under);
-        setCurrentIntegral(integral);
-
-        if (scatChartRefCur.current)
-          renderScatChart(points, scatChartRefCur.current);
-        if (lineChartRefCur.current)
-          renderLineChart(convData, lineChartRefCur.current);
-      }
-    }, 10);
-  };
-
-  // 重置
   const reset = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setIsSimulating(false);
-    setTotalCount(0);
-    setUnderCount(0);
-    setCurrentIntegral(0);
-    if (scatChartRefCur.current) renderScatChart([], scatChartRefCur.current);
-    if (lineChartRefCur.current) renderLineChart([], lineChartRefCur.current);
-  };
+    cancelAnimationFrame(requestRef.current!)
+    setIsSimulating(false)
+    statsRef.current = {
+      under: 0,
+      total: 0,
+      lineData: [],
+      scatterUnder: [],
+      scatterAbove: [],
+    }
+    setDisplayStats({ total: 0, under: 0, integral: 0 })
+    scatChart.current?.setOption({ series: [{}, { data: [] }, { data: [] }] })
+    lineChart.current?.setOption({ series: [{ data: [] }] })
+  }
 
-  // 界面
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <Card className="shadow-md">
-        <Title level={4}>蒙特卡洛法求定积分 ∫₀^π sin(x) dx</Title>
-        <Text type="secondary">直观展示随机投点、积分值收敛过程</Text>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <Card
+        title="蒙特卡洛定积分模拟"
+        className="max-w-6xl mx-auto shadow"
+      >
+        <Row gutter={24}>
+          <Col span={7}>
+            <Space direction="vertical" className="w-full" size="large">
+              <div className="p-4 bg-white border rounded">
+                <Text strong>设置投点总数 (N):</Text>
+                <Slider
+                  min={1000}
+                  max={1000000}
+                  step={1000}
+                  value={totalPoints}
+                  onChange={setTotalPoints}
+                  disabled={isSimulating}
+                />
+                <InputNumber
+                  className="w-full"
+                  value={totalPoints}
+                  onChange={v => setTotalPoints(v || 1000)}
+                  disabled={isSimulating}
+                />
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    type="primary"
+                    block
+                    icon={
+                      isSimulating ? (
+                        <PauseCircleOutlined />
+                      ) : (
+                        <PlayCircleOutlined />
+                      )
+                    }
+                    onClick={handleToggle}
+                  >
+                    {isSimulating ? '暂停' : '开始'}
+                  </Button>
+                  <Button icon={<ReloadOutlined />} onClick={reset} />
+                </div>
+              </div>
 
-        <Row gutter={16} className="mt-4 mb-4">
-          <Col xs={16}>
-            <Space>
-              <Text>投点总数：</Text>
-              <InputNumber
-                min={500}
-                max={20000}
-                step={500}
-                value={totalPoints}
-                onChange={(v) => v && setTotalPoints(v)}
-                disabled={isSimulating}
+              <div className="space-y-4">
+                <Statistic title="已投点数" value={displayStats.total} />
+                <Statistic
+                  title="落在曲线下方 (m)"
+                  value={displayStats.under}
+                  valueStyle={{ color: '#1677ff' }}
+                />
+                <Statistic
+                  title="当前积分近似值"
+                  value={displayStats.integral}
+                  precision={6}
+                  valueStyle={{ color: '#cf1322' }}
+                  suffix={
+                    <div style={{ fontSize: 12, color: '#999' }}>
+                      真实值: 2.000000
+                    </div>
+                  }
+                />
+              </div>
+            </Space>
+          </Col>
+
+          <Col span={17}>
+            <div className="flex flex-col gap-4">
+              <div
+                ref={scatRef}
+                className="w-full h-72 bg-white rounded border"
               />
-            </Space>
-          </Col>
-          <Col xs={8}>
-            <Space>
-              <Button
-                type="primary"
-                icon={<PlayCircleOutlined />}
-                onClick={startSimulate}
-                disabled={isSimulating}
-              >
-                开始模拟
-              </Button>
-              <Button
-                icon={<ReloadOutlined />}
-                onClick={reset}
-                disabled={isSimulating}
-              >
-                重置
-              </Button>
-            </Space>
-          </Col>
-        </Row>
-
-        <Row gutter={16} className="mb-4">
-          <Col xs={8}>
-            <Statistic
-              title="总投点数"
-              value={totalCount}
-              valueStyle={{ color: "#666" }}
-            />
-          </Col>
-          <Col xs={8}>
-            <Statistic
-              title="曲线下方点数"
-              value={underCount}
-              valueStyle={{ color: "blue" }}
-            />
-          </Col>
-          <Col xs={8}>
-            <Statistic
-              title="当前积分值"
-              value={currentIntegral.toFixed(4)}
-              valueStyle={{ color: "red" }}
-            />
-          </Col>
-        </Row>
-
-        <Row gutter={[16, 16]}>
-          <Col xs={24} md={12}>
-            <div ref={scatChartRef} className="w-full h-100" />
-          </Col>
-          <Col xs={24} md={12}>
-            <div ref={lineChartRef} className="w-full h-100" />
+              <div
+                ref={lineRef}
+                className="w-full h-72 bg-white rounded border"
+              />
+            </div>
           </Col>
         </Row>
       </Card>
     </div>
-  );
-};
+  )
+}
 
-export default MonteCarloIntegral;
+export default MonteCarloIntegral
