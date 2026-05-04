@@ -217,13 +217,10 @@ const MonteCarloIntegral: React.FC = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      <Card
-        title="蒙特卡洛定积分模拟"
-        className="max-w-6xl mx-auto shadow"
-      >
+      <Card title="蒙特卡洛定积分模拟" className="max-w-6xl mx-auto shadow">
         <Row gutter={24}>
           <Col span={7}>
-            <Space direction="vertical" className="w-full" size="large">
+            <Space className="w-full" size="large">
               <div className="p-4 bg-white border rounded">
                 <Text strong>设置投点总数 (N):</Text>
                 <Slider
@@ -264,13 +261,13 @@ const MonteCarloIntegral: React.FC = () => {
                 <Statistic
                   title="落在曲线下方 (m)"
                   value={displayStats.under}
-                  valueStyle={{ color: '#1677ff' }}
+                  styles={{ content: { color: '#1677ff' } }}
                 />
                 <Statistic
                   title="当前积分近似值"
                   value={displayStats.integral}
                   precision={6}
-                  valueStyle={{ color: '#cf1322' }}
+                  styles={{ content: { color: '#cf1322' } }}
                   suffix={
                     <div style={{ fontSize: 12, color: '#999' }}>
                       真实值: 2.000000

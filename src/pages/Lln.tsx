@@ -14,7 +14,6 @@ export default function Lln() {
           大数定律是概率论与数理统计的核心理论之一，揭示了
           <strong>随机事件大量重复试验后，频率趋近于概率</strong>
           的客观规律。本实验通过计算机动态模拟抛硬币、蒲丰投针等随机试验，实时展示样本均值随试验次数增加趋于稳定的过程，帮助学习者直观理解大数定律的内涵、条件与应用场景，实现抽象知识可视化、实践化学习。
-
         </Paragraph>
         <Title>抛硬币相关知识</Title>
         <Paragraph>
@@ -49,13 +48,39 @@ export default function Lln() {
         <Paragraph>
           <BuffonNeedleSimulation />
         </Paragraph>
+        <Title>蒙特卡洛积分的相关知识</Title>
         <Paragraph>
-          <MonteCarloPiSimulation/>
+          {/* 蒙特卡洛定积分公式通过随机抽样的方法来估算定积分的值，公式为 I ≈ i N S
+          I≈ N i ​ S，其中 i i 是落在积分区域内的随机点数， N N 是总的随机点数，
+          S S 是包含定积分的区域的面积。 蒙特卡洛积分的基本原理
+          蒙特卡洛积分是一种利用随机数进行数值积分的方法，其基本思想是通过在包含定积分的区域内随机产生点，统计落在积分区域内的点的比例，从而估算定积分的值。具体步骤如下：
+          定义积分区域：设定积分区域为 S S，并计算其面积。 随机抽样：在区域 S S
+          内随机产生 N N 个点，记为 X i X i ​ 。
+          统计落点：统计落在积分区域内的点的数量 i i。
+          计算近似值：根据比例关系，得到定积分的近似值： I ≈ i N S I≈ N i ​ S */}
+          蒙特卡洛积分的基本原理是，通过在积分区域内随机生成N个点，并统计落在积分区域的点的数量，从而计算积分的值。具体步骤如下：
+          <br />
+          1. 定义积分区域：选择一个包含积分的函数的区域，并计算该区域的面积。
+          <br />
+          2. 随机抽样：在积分区域内随机生成N个点，并记为X1, X2, ..., XN。
+          <br />
+          3. 统计落点：统计落在积分区域的点的数量，并记为i。
+          <br />
+          4. 计算近似值：根据比例关系，得到积分的值：I≈（i/N）* S。
+          <br />
+          5. 返回结果：返回积分的值。
+          <br />
+          蒙特卡洛积分的优点是，它可以在任意的积分区域上进行计算，而不需要给出积分的精确表达式。
+          <br />
+          缺点是，它需要生成N个随机点，并计算落在积分区域的点的数量，这需要计算量巨大。
         </Paragraph>
         <Paragraph>
-          <ExperimentQuestion knowledgeUnit='LARGE_NUMBER_LAW' />
+          <MonteCarloPiSimulation />
+        </Paragraph>
+        <Paragraph>
+          <ExperimentQuestion knowledgeUnit="LARGE_NUMBER_LAW" />
         </Paragraph>
       </Typography>
     </div>
-  );
+  )
 }

@@ -143,7 +143,7 @@ const BuffonNeedleSimulation: React.FC = () => {
 
   return (
     <Card className="mx-auto my-10 shadow-2xl">
-      <Title level={2} text-center>
+      <Title level={2} className="text-center">
         蒲丰投针（Buffon's Needle）实验
       </Title>
 
@@ -160,69 +160,80 @@ const BuffonNeedleSimulation: React.FC = () => {
         </Col>
 
         <Col span={8}>
-          <Space direction="vertical" className="w-full">
-            <Statistic
-              title="π 近似值"
-              value={piApproximation}
-              precision={6}
-              valueStyle={{ color: '#3f8600' }}
-            />
-            <Statistic title="相交次数" value={intersectCount} />
-            <Statistic title="总尝试次数" value={totalTrials} />
+          <div className="w-full flex flex-col gap-4">
+            {/* 数据统计展示区域 */}
+            <Space size="middle" className="w-full justify-between flex-wrap">
+              <Statistic
+                title="π 近似值"
+                value={piApproximation}
+                precision={6}
+                styles={{ content: { color: '#3f8600' } }}
+              />
+              <Statistic title="相交次数" value={intersectCount} />
+              <Statistic title="总尝试次数" value={totalTrials} />
+            </Space>
 
-            <div className="mt-4 p-4 bg-blue-50 rounded">
-              <Text strong>参数设置</Text>
-              <div className="mt-2">
-                <Text>线间距 (d)</Text>
-                <InputNumber
-                  min={5}
-                  max={20}
-                  value={lineDistance}
-                  onChange={v => setLineDistance(v || 10)}
-                  className="w-full"
-                />
-              </div>
-              <div className="mt-2">
-                <Text>针长 (L)</Text>
-                <InputNumber
-                  min={1}
-                  max={lineDistance}
-                  value={needleLength}
-                  onChange={v => setNeedleLength(v || 8)}
-                  className="w-full"
-                />
-              </div>
-              <div className="mt-2">
-                <Text>模拟样本量</Text>
-                <InputNumber
-                  min={1000}
-                  max={10000000}
-                  step={10000}
-                  value={totalTrials}
-                  onChange={v => setTotalTrials(v || 100000)}
-                  className="w-full"
-                />
+            {/* 模拟参数配置区域 */}
+            <div className="p-4 bg-blue-50 rounded-lg">
+              <Text strong className="text-base">
+                参数设置
+              </Text>
+              <div className="mt-3 flex flex-col gap-3">
+                <div>
+                  <Text>线间距 (d)</Text>
+                  <InputNumber
+                    min={5}
+                    max={20}
+                    value={lineDistance}
+                    onChange={v => setLineDistance(v || 10)}
+                    className="w-full mt-1"
+                  />
+                </div>
+                <div>
+                  <Text>针长 (L)</Text>
+                  <InputNumber
+                    min={1}
+                    max={lineDistance}
+                    value={needleLength}
+                    onChange={v => setNeedleLength(v || 8)}
+                    className="w-full mt-1"
+                  />
+                </div>
+                <div>
+                  <Text>模拟样本量</Text>
+                  <InputNumber
+                    min={1000}
+                    max={10000000}
+                    step={10000}
+                    value={totalTrials}
+                    onChange={v => setTotalTrials(v || 100000)}
+                    className="w-full mt-1"
+                  />
+                </div>
               </div>
             </div>
 
-            <Button
-              type="primary"
-              block
-              size="large"
-              icon={<PlayCircleOutlined />}
-              onClick={runSimulation}
-              loading={isSimulating}
-            >
-              开始计算
-            </Button>
-            <Button
-              block
-              icon={<ReloadOutlined />}
-              onClick={() => window.location.reload()}
-            >
-              重置
-            </Button>
-          </Space>
+            {/* 功能操作按钮区域 */}
+            <div className="flex flex-col gap-3">
+              <Button
+                type="primary"
+                block
+                size="large"
+                icon={<PlayCircleOutlined />}
+                onClick={runSimulation}
+                loading={isSimulating}
+              >
+                开始计算
+              </Button>
+              <Button
+                block
+                icon={<ReloadOutlined />}
+                onClick={() => window.location.reload()}
+              >
+                重置
+              </Button>
+            </div>
+          </div>
         </Col>
       </Row>
     </Card>

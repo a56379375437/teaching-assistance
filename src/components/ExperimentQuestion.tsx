@@ -40,11 +40,12 @@ const ExperimentQuestion: React.FC<Props> = ({ knowledgeUnit }) => {
     isFinished,
     score,
     resetQuestion,
+    showReview,
+    setShowReview,
   } = useQuestionStore()
 
   //状态管理
   const [loading, setLoading] = useState(false)
-  const [showReview, setShowReview] = useState(false)
   const [targetCount, setTargetCount] = useState<number>(0) // 0 表示还没开始，在选择题数页面
   const [seconds, setSeconds] = useState(0) // 计时器
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -72,6 +73,7 @@ const ExperimentQuestion: React.FC<Props> = ({ knowledgeUnit }) => {
 
   // 获取题目逻辑
   const fetchQuestions = async (count: number) => {
+    if(!knowledgeUnit) return message.warning('知识点参数缺失')
     setLoading(true)
     try {
       const response = await fetch(
@@ -188,7 +190,7 @@ const ExperimentQuestion: React.FC<Props> = ({ knowledgeUnit }) => {
             }
             className="w-full"
           >
-            <Space direction="vertical" className="w-full">
+            <Space className="w-full">
               {currentQuestion.options?.map((opt: any) => {
                 // 颜色逻辑
                 let bgColor = 'transparent'

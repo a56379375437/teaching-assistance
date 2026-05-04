@@ -64,10 +64,11 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
 
   resetQuestion: () =>
     set({
+      questions: [],
       userAnswers: {},
       currentStep: 0,
       isFinished: false,
-      showReview: true,
+      showReview: false,
       score: 0,
     }),
 }))

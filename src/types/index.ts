@@ -88,6 +88,7 @@ export interface QuestionState {
   // Actions
   setQuestions: (questions: any[]) => void
   setAnswer: (questionId: number, answer: any) => void
+  setShowReview: (showReview: boolean) => void
   nextStep: () => void
   prevStep: () => void
   finishQuestion: () => void

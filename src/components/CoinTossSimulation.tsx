@@ -168,7 +168,7 @@ const CoinTossSimulation: React.FC = () => {
 
         <Row gutter={24}>
           <Col span={8}>
-            <Space direction="vertical" className="w-full" size="large">
+            <Space className="w-full" size="large">
               <div className="bg-blue-50 p-4 rounded-lg">
                 <Text strong>实验配置</Text>
                 <div className="mt-4">
@@ -219,14 +219,14 @@ const CoinTossSimulation: React.FC = () => {
                 <Statistic
                   title="正面 (Heads)"
                   value={displayStats.heads}
-                  valueStyle={{ color: "#1677ff" }}
+                  styles={{ content: { color: '#1677ff' } }}
                 />
                 <Statistic title="反面 (Tails)" value={displayStats.tails} />
                 <Statistic
                   title="当前频率"
                   value={displayStats.freq}
                   precision={5}
-                  valueStyle={{ color: '#cf1322' }}
+                  styles={{ content: { color: '#cf1322' } }}
                   suffix={
                     <Text type="secondary" style={{ fontSize: 14 }}>
                       {' '}
@@ -250,8 +250,8 @@ const CoinTossSimulation: React.FC = () => {
         <div className="mt-8 p-4 bg-gray-100 rounded">
           <Text type="secondary">
             注：大数定律指出，随着实验次数n的增大，事件发生的频率
-            会依概率收敛于其概率。 在 n较小时，波动属于随机误差；当
-            n达到10^5 级别时，频率通常能稳定在 0.5+-0.001范围内。
+            会依概率收敛于其概率。 在 n较小时，波动属于随机误差；当 n达到10^5
+            级别时，频率通常能稳定在 0.5+-0.001范围内。
           </Text>
         </div>
       </Card>
