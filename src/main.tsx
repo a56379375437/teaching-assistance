@@ -9,9 +9,11 @@ import Test from './pages/Test.tsx'
 import Coin from './pages/Coin.tsx'
 import Lln from './pages/Lln.tsx'
 import QuestionManagement from './pages/QuestionManagement.tsx'
-import Login from './pages/Login.tsx' 
+import Login from './pages/Login.tsx'
 import AuthGuard from './components/AuthGuard.tsx'
 import { evaluationkey, experimentkey } from './types/index.ts'
+import StudentManagement from './pages/StudentManagement.tsx'
+import UserManagement from './pages/UserManagement.tsx'
 
 const router = createBrowserRouter([
   {
@@ -65,6 +67,24 @@ const router = createBrowserRouter([
               </AuthGuard>
             ),
           },
+          //学生路由
+          {
+            path: 'students',
+            element: (
+              <AuthGuard allowedRoles={['TEACHER','ADMIN']}>
+                <StudentManagement />
+              </AuthGuard>
+            ),
+          },
+          //管理员可见的用户管理
+          {
+            path: 'users',
+            element: (
+              <AuthGuard allowedRoles={['ADMIN']}>
+                <UserManagement />
+              </AuthGuard>
+            ),
+          }
         ],
       },
       {
