@@ -18,7 +18,7 @@ import {
   ReloadOutlined,
   EyeOutlined,
 } from '@ant-design/icons'
-import { useQuestionStore } from '../store/index'
+import { useAuthStore, useQuestionStore } from '../store/index'
 import { QUESTION_TYPES, QUESTION_LEVELS } from '../types'
 
 const { Title, Text } = Typography
@@ -38,13 +38,14 @@ const ExperimentQuestion: React.FC<Props> = ({ knowledgeUnit }) => {
     prevStep,
     finishQuestion,
     isFinished,
-    score,
+    score: quizScore,
     resetQuestion,
     showReview,
     setShowReview,
   } = useQuestionStore()
 
   //状态管理
+  const { user, refreshScore } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [targetCount, setTargetCount] = useState<number>(0) // 0 表示还没开始，在选择题数页面
   const [seconds, setSeconds] = useState(0) // 计时器
@@ -73,7 +74,7 @@ const ExperimentQuestion: React.FC<Props> = ({ knowledgeUnit }) => {
 
   // 获取题目逻辑
   const fetchQuestions = async (count: number) => {
-    if(!knowledgeUnit) return message.warning('知识点参数缺失')
+    if (!knowledgeUnit) return message.warning('知识点参数缺失')
     setLoading(true)
     try {
       const response = await fetch(
@@ -97,6 +98,42 @@ const ExperimentQuestion: React.FC<Props> = ({ knowledgeUnit }) => {
       setLoading(false)
     }
   }
+
+  // 提交测评逻辑
+  const handleSubmit = async () => {
+    //先进行Store内的计算
+    finishQuestion()
+
+    const latestScore = useQuestionStore.getState().score
+
+    setLoading(true)
+    try {
+      const response = await fetch('/api/records/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: user?.id,
+          score: latestScore, // 当前得分
+          totalScore: questions.reduce((acc, q) => acc + q.score, 0), // 总分
+          knowledgeUnit: knowledgeUnit,
+        }),
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        message.success(`测评提交成功！获得积分: ${latestScore}`)
+        //调用 AuthStore 的方法刷新 Header 上的积分
+        await refreshScore()
+      } else {
+        message.error(result.message || '提交失败')
+      }
+    } catch (e) {
+      message.error('网络错误，请稍后再试')
+    } finally {
+      setLoading(false)
+    }
+  }
+
 
   // 重新开始逻辑
   const handleRestart = () => {
@@ -137,8 +174,8 @@ const ExperimentQuestion: React.FC<Props> = ({ knowledgeUnit }) => {
     return (
       <div className="p-6 max-w-4xl mx-auto">
         <Result
-          status={score >= 60 ? 'success' : 'warning'}
-          title={`测评结束！得分：${score}`}
+          status={quizScore >= 60 ? 'success' : 'warning'}
+          title={`测评结束！得分：${quizScore}`}
           subTitle={`用时：${formatTime(seconds)}。您可以查看解析或重新挑战新题。`}
           extra={[
             <Button
@@ -328,7 +365,7 @@ const ExperimentQuestion: React.FC<Props> = ({ knowledgeUnit }) => {
                 重新挑战
               </Button>
             ) : (
-              <Button type="primary" onClick={finishQuestion} danger>
+              <Button type="primary" onClick={handleSubmit} danger loading={loading}>
                 提交测评
               </Button>
             )

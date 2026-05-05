@@ -22,6 +22,7 @@ import {
   RobotOutlined,
 } from '@ant-design/icons'
 import { CONFIG_ROUTE, KNOWLEDGE_UNIT_OPTIONS, QUESTION_TYPES, type Question } from '../types'
+import { useAuthStore } from '../store'
 
 const { Title } = Typography
 const { Option } = Select
@@ -39,6 +40,8 @@ export default function QuestionManagement() {
     pageSize: 10,
     total: 0,
   })
+
+  const {user} = useAuthStore.getState();
 
   // 1. 获取列表数据 (GET 请求)
   const fetchData = async (page = 1, pageSize = 10) => {
@@ -94,7 +97,7 @@ export default function QuestionManagement() {
   const handleFinish = async (values: any) => {
     try {
       // 数据预处理
-      const submitData = { ...values }
+      const submitData = { ...values,creatorId:user?.id }
 
       // 如果是判断题，将字符串 "true"/"false" 转为 Boolean 类型
       if (values.type === 'JUDGMENT') {
