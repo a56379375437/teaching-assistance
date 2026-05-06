@@ -4,9 +4,6 @@ import App from './App.tsx'
 import Home from './pages/Home.tsx'
 import NotFound from './pages/NotFound.tsx'
 import Guide from './pages/Guide.tsx'
-import Buffon from './pages/Buffon.tsx'
-import Test from './pages/Test.tsx'
-import Coin from './pages/Coin.tsx'
 import Lln from './pages/Lln.tsx'
 import QuestionManagement from './pages/QuestionManagement.tsx'
 import Login from './pages/Login.tsx'
@@ -38,20 +35,8 @@ const router = createBrowserRouter([
         path: experimentkey,
         children: [
           {
-            path: 'buffon-needle',
-            element: <Buffon />,
-          },
-          {
             path: 'lln',
             element: <Lln />,
-          },
-          {
-            path: 'test',
-            element: <Test />,
-          },
-          {
-            path: 'coin',
-            element: <Coin />,
           },
         ],
       },

@@ -103,8 +103,8 @@ const CoinTossSimulation: React.FC = () => {
       return
     }
 
-    // 每帧批量抛币 100 次，极大提高收敛速度
-    const batchSize = Math.max(1, Math.floor(totalTosses / 200))
+    // 每帧批量抛币 100 次
+    const batchSize = Math.max(10, Math.floor(totalTosses / 100))
     for (let i = 0; i < batchSize && stats.total < totalTosses; i++) {
       stats.total++
       if (Math.random() > 0.5) {
@@ -118,7 +118,7 @@ const CoinTossSimulation: React.FC = () => {
 
     // 记录数据点（降低采样率，避免图表卡顿）
     // 只有在次数跨越 1% 步长或结束时才记录点
-    const sampleStep = Math.max(1, Math.floor(totalTosses / 500))
+    const sampleStep = Math.max(1, Math.floor(totalTosses / 400))
     if (stats.total % sampleStep === 0 || stats.total === totalTosses) {
       stats.dataPoints.push([stats.total, currentFreq])
 
@@ -242,7 +242,7 @@ const CoinTossSimulation: React.FC = () => {
             <div
               ref={chartRef}
               className="w-full h-125 bg-white p-4 rounded-lg"
-              style={{ border: '1px solid #f0f0f0' }}
+              style={{ border: '1px solid #f0f0f0' , touchAction: 'none'}}
             />
           </Col>
         </Row>

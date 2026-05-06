@@ -49,7 +49,7 @@ function getItem(
 
 const App: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false)
-  const[isPassModalOpen, setIsPassModalOpen] = useState(false)//修改密码弹窗状态
+  const [isPassModalOpen, setIsPassModalOpen] = useState(false) // 修改密码弹窗状态
   const [passForm] = Form.useForm()
 
   const { user, logout } = useAuthStore()
@@ -119,9 +119,6 @@ const App: React.FC = () => {
     const baseItems: MenuItem[] = [
       getItem('知识单元', experimentkey, <UserOutlined />, [
         getItem('大数定理', experimentkey + '/lln'),
-        getItem('蒲丰投针问题', experimentkey + '/buffon-needle'),
-        getItem('测试', experimentkey + '/test'),
-        getItem('抛硬币', experimentkey + '/coin'),
       ]),
     ]
 
@@ -141,7 +138,6 @@ const App: React.FC = () => {
       )
     }
 
-
     baseItems.push(getItem('使用指南', '/guide', <FileOutlined />))
     return baseItems
   }, [user])
@@ -156,20 +152,17 @@ const App: React.FC = () => {
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between', // 左右分布
+          justifyContent: 'space-between',
           padding: '0 24px',
         }}
       >
-        {/* 左侧：标题 */}
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <span style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>
             教学辅助系统
           </span>
         </div>
 
-        {/* 右侧：用户信息与积分 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          {/* 学生专有：显示积分 */}
           {user?.role === 'STUDENT' && (
             <Tag
               color="gold"
@@ -184,7 +177,6 @@ const App: React.FC = () => {
             </Tag>
           )}
 
-          {/* 角色标识 */}
           <Tag color={user?.role === 'STUDENT' ? 'blue' : 'magenta'}>
             {user?.role === 'STUDENT'
               ? '学生端'
@@ -193,7 +185,6 @@ const App: React.FC = () => {
                 : '管理员'}
           </Tag>
 
-          {/* 用户下拉菜单 */}
           <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
             <Space style={{ cursor: 'pointer', color: 'white' }}>
               <Avatar
@@ -238,6 +229,7 @@ const App: React.FC = () => {
           </Content>
         </Layout>
       </Layout>
+
       {/* 修改密码弹窗 */}
       <Modal
         title="修改个人密码"

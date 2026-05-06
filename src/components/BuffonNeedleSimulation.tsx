@@ -66,7 +66,7 @@ const BuffonNeedleSimulation: React.FC = () => {
     if (ctx) drawBackground()
 
     let currentIntersects = 0
-    const batchSize = 10000 // 分批处理防止卡顿
+    const batchSize = 5000 // 分批处理防止卡顿
     const total = totalTrials
     const L = needleLength
     const d = lineDistance
@@ -76,7 +76,6 @@ const BuffonNeedleSimulation: React.FC = () => {
       const currentBatch = Math.min(batchSize, total - i)
 
       for (let j = 0; j < currentBatch; j++) {
-        // 核心数学改进
         // 针中心距离最近平行线的距离 h，范围 [0, d/2]
         const h = Math.random() * (d / 2)
         // 针与平行线的夹角 theta，范围 [0, PI/2]
@@ -99,8 +98,8 @@ const BuffonNeedleSimulation: React.FC = () => {
       setPiApproximation(prob > 0 ? (2 * L) / (d * prob) : 0)
       setProgress(Math.round(((i + currentBatch) / total) * 100))
 
-      // 给浏览器喘息机会，防止 UI 冻结
-      await new Promise(resolve => setTimeout(resolve, 0))
+      // 增加延迟，防止阻塞主线程
+      await new Promise(resolve => setTimeout(resolve, 10))
     }
 
     setIsSimulating(false)
