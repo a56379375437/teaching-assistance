@@ -1,3 +1,6 @@
+//大数定理知识单元（Law of Large Numbers, LLN）
+
+
 import { Typography, Divider, Card } from 'antd'
 import BuffonNeedleSimulation from '../components/BuffonNeedleSimulation'
 import CoinTossSimulation from '../components/CoinTossSimulation'

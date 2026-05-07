@@ -33,13 +33,8 @@ export const QUESTION_TYPES = [
 
 // 知识点枚举映射
 export const KNOWLEDGE_UNIT_OPTIONS = [
-  { label: '概率论基础', value: 'PROBABILITY_BASE' },
-  { label: '随机变量', value: 'RANDOM_VARIABLE' },
-  { label: '数字特征', value: 'DIGITAL_CHARACTER' },
   { label: '大数定律', value: 'LARGE_NUMBER_LAW' },
-  { label: '数理统计', value: 'MATHEMATICAL_STAT' },
-  { label: '点估计', value: 'POINT_ESTIMATION' },
-  { label: '假设检验', value: 'HYPOTHESIS_TEST' },
+  {label: '中心极限定理', value: 'CENTRAL_LIMIT_THEOREM'},
 ]
 
 // 题目难度枚举映射

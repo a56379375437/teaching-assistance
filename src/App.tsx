@@ -119,6 +119,7 @@ const App: React.FC = () => {
     const baseItems: MenuItem[] = [
       getItem('知识单元', experimentkey, <UserOutlined />, [
         getItem('大数定理', experimentkey + '/lln'),
+        getItem('中心极限定理', experimentkey + '/clt'),
       ]),
     ]
 

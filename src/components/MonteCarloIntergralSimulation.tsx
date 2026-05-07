@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Card, Row, Col, Statistic, Button, Slider, Typography, Space } from 'antd'
+import {  Row, Col, Statistic, Button, Slider, Typography, Space, Flex } from 'antd'
 import { PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons'
 import * as echarts from 'echarts'
 
@@ -147,7 +147,7 @@ const MonteCarloIntegralSimulation: React.FC = () => {
           <div ref={chartRef} style={{ width: '100%', height: '400px' }} />
         </Col>
         <Col span={8}>
-          <Space direction="vertical" className="w-full">
+          <Flex vertical gap='middle' className="w-full">
             <div className="p-4 bg-gray-50 rounded">
               <Text strong>模拟配置</Text>
               <Slider
@@ -189,7 +189,7 @@ const MonteCarloIntegralSimulation: React.FC = () => {
               precision={5}
               suffix="/ 2.0000"
             />
-          </Space>
+          </Flex>
         </Col>
       </Row>
     </div>

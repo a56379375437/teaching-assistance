@@ -11,6 +11,7 @@ import AuthGuard from './components/AuthGuard.tsx'
 import { evaluationkey, experimentkey } from './types/index.ts'
 import StudentManagement from './pages/StudentManagement.tsx'
 import UserManagement from './pages/UserManagement.tsx'
+import Clt from './pages/Clt.tsx'
 
 const router = createBrowserRouter([
   {
@@ -38,6 +39,10 @@ const router = createBrowserRouter([
             path: 'lln',
             element: <Lln />,
           },
+          {
+            path: 'clt',
+            element: <Clt />
+          }
         ],
       },
       {
