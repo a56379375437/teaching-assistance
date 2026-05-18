@@ -12,6 +12,7 @@ import { evaluationkey, experimentkey } from './types/index.ts'
 import StudentManagement from './pages/StudentManagement.tsx'
 import UserManagement from './pages/UserManagement.tsx'
 import Clt from './pages/Clt.tsx'
+import Ci from './pages/Ci.tsx'
 
 const router = createBrowserRouter([
   {
@@ -42,6 +43,10 @@ const router = createBrowserRouter([
           {
             path: 'clt',
             element: <Clt />
+          },
+          {
+            path: 'ci',
+            element: <Ci />
           }
         ],
       },

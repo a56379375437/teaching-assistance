@@ -120,6 +120,7 @@ const App: React.FC = () => {
       getItem('知识单元', experimentkey, <UserOutlined />, [
         getItem('大数定理', experimentkey + '/lln'),
         getItem('中心极限定理', experimentkey + '/clt'),
+        getItem('置信区间', experimentkey + '/ci'),
       ]),
     ]
 
@@ -232,12 +233,11 @@ const App: React.FC = () => {
       </Layout>
 
       {/* 修改密码弹窗 */}
-      <Modal
+      {(isPassModalOpen && <Modal
         title="修改个人密码"
         open={isPassModalOpen}
         onOk={handleChangePassword}
         onCancel={() => setIsPassModalOpen(false)}
-        destroyOnHidden
       >
         <Form form={passForm} layout="vertical" className="mt-4">
           <Form.Item
@@ -277,7 +277,7 @@ const App: React.FC = () => {
             />
           </Form.Item>
         </Form>
-      </Modal>
+      </Modal>)}
     </Layout>
   )
 }

@@ -48,7 +48,8 @@ const StudentManagement: React.FC = () => {
       const result = await res.json()
       if (result.success) {
         setData(result.data)
-        setTotal(result.meta?.pagination.total || 0)
+        const serverTotal = result.pagination?.total || result.total || 0;
+        setTotal(serverTotal)
       }
     } catch (e) {
       message.error('加载数据失败')
@@ -157,8 +158,8 @@ const StudentManagement: React.FC = () => {
           onClick={() => {
             setEditingId(null)
             form.resetFields()
-            setIsModalOpen(true);
-            setTimeout(() => form.resetFields(), 0);
+            setIsModalOpen(true)
+            setTimeout(() => form.resetFields(), 0)
           }}
         >
           新增学生
@@ -193,38 +194,47 @@ const StudentManagement: React.FC = () => {
         }}
       />
 
-      <Modal
-        title={editingId ? '修改学生信息' : '新增学生账号'}
-        open={isModalOpen}
-        onOk={handleOk}
-        onCancel={() => setIsModalOpen(false)}
-        destroyOnHidden
-      >
-        <Form form={form} layout="vertical" className="mt-4">
-          <Form.Item
-            name="username"
-            label="登录账号"
-            rules={[{ required: true }]}
-          >
-            <Input disabled={!!editingId} prefix={<UserOutlined />} autoComplete='username' />
-          </Form.Item>
-          <Form.Item name="name" label="学生姓名" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          {!editingId && (
+      {isModalOpen && (
+        <Modal
+          title={editingId ? '修改学生信息' : '新增学生账号'}
+          open={isModalOpen}
+          onOk={handleOk}
+          onCancel={() => setIsModalOpen(false)}
+        >
+          <Form form={form} layout="vertical" className="mt-4">
             <Form.Item
-              name="password"
-              label="初始密码"
+              name="username"
+              label="登录账号"
               rules={[{ required: true }]}
             >
-              <Input.Password  autoComplete='new-password'/>
+              <Input
+                disabled={!!editingId}
+                prefix={<UserOutlined />}
+                autoComplete="username"
+              />
             </Form.Item>
-          )}
-          <Form.Item name="score" label="积分设置" initialValue={0}>
-            <InputNumber min={0} className="w-full" />
-          </Form.Item>
-        </Form>
-      </Modal>
+            <Form.Item
+              name="name"
+              label="学生姓名"
+              rules={[{ required: true }]}
+            >
+              <Input />
+            </Form.Item>
+            {!editingId && (
+              <Form.Item
+                name="password"
+                label="初始密码"
+                rules={[{ required: true }]}
+              >
+                <Input.Password autoComplete="new-password" />
+              </Form.Item>
+            )}
+            <Form.Item name="score" label="积分设置" initialValue={0}>
+              <InputNumber min={0} className="w-full" />
+            </Form.Item>
+          </Form>
+        </Modal>
+      )}
     </Card>
   )
 }

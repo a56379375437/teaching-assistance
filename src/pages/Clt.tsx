@@ -1,3 +1,5 @@
+//中心极限定理（Central Limit Theorem）
+
 import { Typography, Divider, Card, Alert, Flex } from 'antd'
 import ExperimentQuestion from '../components/ExperimentQuestion'
 import SamplingMeanSimulation from '../components/SamplingMeanSimulation'
@@ -7,7 +9,9 @@ import DiceSumSimulation from '../components/DiceSumSimulation'
 const { Title, Paragraph, Text } = Typography
 
 export default function Clt() {
+
   const sectionStyle = { marginBottom: '40px' }
+
   const cardStyle = {
     borderRadius: '12px',
     boxShadow: '0 4px 12px rgba(0,0,0,0.05)',

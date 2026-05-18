@@ -52,7 +52,8 @@ const UserManagement: React.FC = () => {
       const result = await res.json()
       if (result.success) {
         setData(result.data)
-        setTotal(result.meta?.pagination.total || 0)
+        const serverTotal = result.pagination?.total || result.total || 0
+        setTotal(serverTotal)
       }
     } catch (e) {
       message.error('加载用户数据失败')
@@ -219,12 +220,11 @@ const UserManagement: React.FC = () => {
         }}
       />
 
-      <Modal
+      {(isModalOpen && <Modal
         title={editingId ? '编辑用户信息' : '创建新用户'}
         open={isModalOpen}
         onOk={handleOk}
         onCancel={() => setIsModalOpen(false)}
-        destroyOnHidden
       >
         <Form form={form} layout="vertical" className="mt-4">
           <Form.Item name="role" label="用户角色" rules={[{ required: true }]}>
@@ -273,7 +273,7 @@ const UserManagement: React.FC = () => {
             }
           </Form.Item>
         </Form>
-      </Modal>
+      </Modal>)}
     </Card>
   )
 }

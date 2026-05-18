@@ -78,7 +78,7 @@ const ExperimentQuestion: React.FC<Props> = ({ knowledgeUnit }) => {
     setLoading(true)
     try {
       const response = await fetch(
-        `/api/questions?knowledgeUnit=${knowledgeUnit}`
+        `/api/questions?knowledgeUnit=${knowledgeUnit}&limit=${count}`
       )
       const result = await response.json()
       // 随机抽取指定数量
@@ -149,7 +149,7 @@ const ExperimentQuestion: React.FC<Props> = ({ knowledgeUnit }) => {
       <div className="flex flex-col items-center justify-center p-12 bg-white rounded-lg shadow-sm">
         <Title level={3}>请选择本次练习题量</Title>
         <Space size="large" className="mt-8">
-          {[5, 10, 15].map(num => (
+          {[5, 10].map(num => (
             <Button
               key={num}
               type="primary"
@@ -199,7 +199,7 @@ const ExperimentQuestion: React.FC<Props> = ({ knowledgeUnit }) => {
     )
   }
 
-  // 核心渲染逻辑：区分“答题模式”和“查看回看模式”
+  //区分“答题模式”和“查看回看模式”
   const currentQuestion = questions[currentStep]
   const isReviewMode = showReview // 是否是回看模式
   const progress = Math.round(((currentStep + 1) / questions.length) * 100)

@@ -249,8 +249,15 @@ export default function QuestionManagement() {
             icon={<EditOutlined />}
             onClick={() => {
               setEditingId(record.id!)
-              form.setFieldsValue(record)
+              // 预处理回显数据
+              const formData = { ...record}
+              if (formData.type === 'JUDGMENT' && typeof formData.answer === 'boolean') {
+                formData.answer = formData.answer ? 'true' : 'false'
+              }
               setIsModalVisible(true)
+              setTimeout(() => {
+                form.setFieldsValue(formData)
+              }, 0)
             }}
           >
             编辑
@@ -366,155 +373,156 @@ export default function QuestionManagement() {
         />
       </Card>
 
-      {/* Modal 部分保持不变 */}
-      <Modal
-        title={editingId ? '编辑题目' : '新增题目'}
-        open={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
-        onOk={() => form.submit()}
-        width={800}
-        confirmLoading={loading}
-        destroyOnHidden
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleFinish}
-          initialValues={{ type: 'SINGLE_CHOICE', level: 'EASY', score: 5 }}
+      {isModalVisible && (
+        <Modal
+          title={editingId ? '编辑题目' : '新增题目'}
+          open={isModalVisible}
+          onCancel={() => setIsModalVisible(false)}
+          onOk={() => form.submit()}
+          width={800}
+          confirmLoading={loading}
+
         >
-          <Form.Item
-            name="title"
-            label="题干内容"
-            rules={[{ required: true, message: '请输入题干' }]}
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleFinish}
+            initialValues={{ type: 'SINGLE_CHOICE', level: 'EASY', score: 5 }}
           >
-            <Input.TextArea
-              rows={3}
-              placeholder="请输入题目描述，或输入简短描述后点击下方 AI 生成"
-            />
-          </Form.Item>
-          <div style={{ marginBottom: 24 }}>
-            <Button
-              type="dashed"
-              icon={<RobotOutlined />}
-              onClick={handleAIGenerate}
-              loading={aiLoading}
-              block
-            >
-              使用 AI 自动完善题目详情 (基于当前标题)
-            </Button>
-          </div>
-          <Flex gap="16px">
             <Form.Item
-              name="type"
-              label="题目类型"
-              style={{ flex: 1 }}
-              rules={[{ required: true }]}
+              name="title"
+              label="题干内容"
+              rules={[{ required: true, message: '请输入题干' }]}
             >
-              <Select>
-                {QUESTION_TYPES.map(t => (
-                  <Option key={t.value} value={t.value}>
-                    {t.label}
+              <Input.TextArea
+                rows={3}
+                placeholder="请输入题目描述，或输入简短描述后点击下方 AI 生成"
+              />
+            </Form.Item>
+            <div style={{ marginBottom: 24 }}>
+              <Button
+                type="dashed"
+                icon={<RobotOutlined />}
+                onClick={handleAIGenerate}
+                loading={aiLoading}
+                block
+              >
+                使用 AI 自动完善题目详情 (基于当前标题)
+              </Button>
+            </div>
+            <Flex gap="16px">
+              <Form.Item
+                name="type"
+                label="题目类型"
+                style={{ flex: 1 }}
+                rules={[{ required: true }]}
+              >
+                <Select>
+                  {QUESTION_TYPES.map(t => (
+                    <Option key={t.value} value={t.value}>
+                      {t.label}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+              <Form.Item name="level" label="难度" style={{ flex: 1 }}>
+                <Select>
+                  <Option value="EASY">容易</Option>
+                  <Option value="MEDIUM">中等</Option>
+                  <Option value="HARD">困难</Option>
+                </Select>
+              </Form.Item>
+              <Form.Item name="score" label="建议分值" style={{ flex: 1 }}>
+                <InputNumber min={1} max={100} style={{ width: '100%' }} />
+              </Form.Item>
+            </Flex>
+            <Form.Item
+              name="knowledgeUnit"
+              label="所属知识单元"
+              rules={[{ required: true, message: '请输入知识单元' }]}
+            >
+              <Select placeholder="请选择知识单元">
+                {KNOWLEDGE_UNIT_OPTIONS.map(opt => (
+                  <Option key={opt.value} value={opt.value}>
+                    {opt.label}
                   </Option>
                 ))}
               </Select>
             </Form.Item>
-            <Form.Item name="level" label="难度" style={{ flex: 1 }}>
-              <Select>
-                <Option value="EASY">容易</Option>
-                <Option value="MEDIUM">中等</Option>
-                <Option value="HARD">困难</Option>
-              </Select>
-            </Form.Item>
-            <Form.Item name="score" label="建议分值" style={{ flex: 1 }}>
-              <InputNumber min={1} max={100} style={{ width: '100%' }} />
-            </Form.Item>
-          </Flex>
-          <Form.Item
-            name="knowledgeUnit"
-            label="所属知识单元"
-            rules={[{ required: true, message: '请输入知识单元' }]}
-          >
-            <Select placeholder="请选择知识单元">
-              {KNOWLEDGE_UNIT_OPTIONS.map(opt => (
-                <Option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Divider orientation="horizontal">答案与选项</Divider>
-          <Form.List name="options">
-            {(fields, { add, remove }) => (
-              <>
-                {fields.map(({ key, name, ...restField }) => (
-                  <Flex
-                    key={key}
-                    gap="small"
-                    align="baseline"
-                    style={{ marginBottom: 8 }}
-                  >
-                    <Form.Item
-                      {...restField}
-                      name={[name, 'content']}
-                      style={{ flex: 1 }}
-                      rules={[{ required: true, message: '内容必填' }]}
+            <Divider orientation="horizontal">答案与选项</Divider>
+            <Form.List name="options">
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map(({ key, name, ...restField }) => (
+                    <Flex
+                      key={key}
+                      gap="small"
+                      align="baseline"
+                      style={{ marginBottom: 8 }}
                     >
-                      <Input placeholder="选项内容" />
-                    </Form.Item>
-                    <Form.Item {...restField} name={[name, 'isCorrect']}>
-                      <Select placeholder="正确项？" style={{ width: 120 }}>
-                        <Option value={true}>正确答案</Option>
-                        <Option value={false}>干扰项</Option>
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'content']}
+                        style={{ flex: 1 }}
+                        rules={[{ required: true, message: '内容必填' }]}
+                      >
+                        <Input placeholder="选项内容" />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'isCorrect']}>
+                        <Select placeholder="正确项？" style={{ width: 120 }}>
+                          <Option value={true}>正确答案</Option>
+                          <Option value={false}>干扰项</Option>
+                        </Select>
+                      </Form.Item>
+                      <DeleteOutlined
+                        onClick={() => remove(name)}
+                        style={{ color: 'red' }}
+                      />
+                    </Flex>
+                  ))}
+                  <Form.Item>
+                    <Button
+                      type="dashed"
+                      onClick={() => add()}
+                      block
+                      icon={<PlusOutlined />}
+                    >
+                      添加选项
+                    </Button>
+                  </Form.Item>
+                </>
+              )}
+            </Form.List>
+            <Form.Item
+              noStyle
+              shouldUpdate={(prev, curr) => prev.type !== curr.type}
+            >
+              {({ getFieldValue }) => {
+                const type = getFieldValue('type')
+                if (type === 'JUDGMENT') {
+                  return (
+                    <Form.Item
+                      name="answer"
+                      label="标准答案"
+                      rules={[{ required: true, message: '请选择答案' }]}
+                    >
+                      <Select placeholder="请选择正确项">
+                        <Option value="true">正确 (True)</Option>
+                        <Option value="false">错误 (False)</Option>
                       </Select>
                     </Form.Item>
-                    <DeleteOutlined
-                      onClick={() => remove(name)}
-                      style={{ color: 'red' }}
-                    />
-                  </Flex>
-                ))}
-                <Form.Item>
-                  <Button
-                    type="dashed"
-                    onClick={() => add()}
-                    block
-                    icon={<PlusOutlined />}
-                  >
-                    添加选项
-                  </Button>
-                </Form.Item>
-              </>
-            )}
-          </Form.List>
-          <Form.Item
-            noStyle
-            shouldUpdate={(prev, curr) => prev.type !== curr.type}
-          >
-            {({ getFieldValue }) => {
-              const type = getFieldValue('type')
-              if (type === 'JUDGMENT') {
+                  )
+                }
                 return (
-                  <Form.Item
-                    name="answer"
-                    label="标准答案"
-                    rules={[{ required: true }]}
-                  >
-                    <Select placeholder="请选择正确项">
-                      <Option value="true">正确 (True)</Option>
-                      <Option value="false">错误 (False)</Option>
-                    </Select>
+                  <Form.Item name="answer" label="标准答案 (非选择题使用)">
+                    <Input.TextArea placeholder="请输入详细标准答案" />
                   </Form.Item>
                 )
-              }
-              return (
-                <Form.Item name="answer" label="标准答案 (非选择题使用)">
-                  <Input.TextArea placeholder="请输入详细标准答案" />
-                </Form.Item>
-              )
-            }}
-          </Form.Item>
-        </Form>
-      </Modal>
+              }}
+            </Form.Item>
+          </Form>
+        </Modal>
+      )}
     </div>
   )
 }

@@ -35,6 +35,7 @@ export const QUESTION_TYPES = [
 export const KNOWLEDGE_UNIT_OPTIONS = [
   { label: '大数定律', value: 'LARGE_NUMBER_LAW' },
   {label: '中心极限定理', value: 'CENTRAL_LIMIT_THEOREM'},
+  { label: '置信区间', value: 'CONFIDENCE_INTERVAL' },
 ]
 
 // 题目难度枚举映射
